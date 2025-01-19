@@ -31,6 +31,7 @@ Install with: `go install github.com/glycerine/b3@latest`
 
 To scan recursively, use the `b3 -r` flag. This will use
 all available cores to checksum directories in parallel.
+The scan will follow symlinks. Use `-nosym` to prevent this.
 
 See `b3 -h` for all flags.
 

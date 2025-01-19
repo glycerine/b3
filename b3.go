@@ -19,6 +19,7 @@ type Blake3SummerConfig struct {
 	help bool
 	All  bool
 
+	nosym   bool
 	quiet   bool
 	recurse bool
 	version bool
@@ -27,6 +28,7 @@ type Blake3SummerConfig struct {
 
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
+	fs.BoolVar(&c.nosym, "nosym", false, "do not scan symlinks")
 	fs.BoolVar(&c.quiet, "q", false, "act quietly. do not complain if no files to scan")
 	fs.BoolVar(&c.help, "help", false, "show this help")
 	fs.BoolVar(&c.recurse, "r", false, "recursive checksum sub-directories")
@@ -212,7 +214,7 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 		return
 	}
 
-	err := WalkFollowSymlink(root, func(path string, info os.FileInfo, err error) error {
+	err := cfg.walkFollowSymlink(root, func(path string, info os.FileInfo, err error) error {
 		// if there was a filesystem error reading one of our dir, we want to know.
 		panicOn(err)
 		//vv("WalkDir found path = '%v'", path)
@@ -279,12 +281,12 @@ func (cfg *Blake3SummerConfig) ScanOneFile(path string, results chan *pathsum) (
 // order, which makes the output deterministic but means that for very
 // large directories Walk can be inefficient.
 // This Walk *does* follow symbolic links.
-func WalkFollowSymlink(root string, walkFn filepath.WalkFunc) error {
+func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn filepath.WalkFunc) error {
 	info, err := os.Stat(root)
 	if err != nil {
 		err = walkFn(root, nil, err)
 	} else {
-		err = walk(root, info, walkFn)
+		err = cfg.walk(root, info, walkFn)
 	}
 	if err == filepath.SkipDir {
 		return nil
@@ -294,7 +296,7 @@ func WalkFollowSymlink(root string, walkFn filepath.WalkFunc) error {
 
 // also from path/filepath/path.go
 // walk recursively descends path, calling walkFn.
-func walk(path string, info os.FileInfo, walkFn filepath.WalkFunc) error {
+func (cfg *Blake3SummerConfig) walk(path string, info os.FileInfo, walkFn filepath.WalkFunc) error {
 	if !info.IsDir() {
 		return walkFn(path, info, nil)
 	}
@@ -314,13 +316,19 @@ func walk(path string, info os.FileInfo, walkFn filepath.WalkFunc) error {
 
 	for _, name := range names {
 		filename := filepath.Join(path, name)
-		fileInfo, err := os.Stat(filename) // instead of os.Lstat
+		var fileInfo os.FileInfo
+		var err error
+		if cfg.nosym {
+			fileInfo, err = os.Lstat(filename) // does not follow sym links
+		} else {
+			fileInfo, err = os.Stat(filename) // instead of os.Lstat
+		}
 		if err != nil {
 			if err := walkFn(filename, fileInfo, err); err != nil && err != filepath.SkipDir {
 				return err
 			}
 		} else {
-			err = walk(filename, fileInfo, walkFn)
+			err = cfg.walk(filename, fileInfo, walkFn)
 			if err != nil {
 				if !fileInfo.IsDir() || err != filepath.SkipDir {
 					return err
