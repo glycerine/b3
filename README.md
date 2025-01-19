@@ -27,6 +27,8 @@ $
 
 By default, emacs ~ files are ignored. Use `b3 -all` to include them.
 
+Install with: `go install github.com/glycerine/b3@latest`
+
 -----
 Author: Jason E. Aten, Ph.D.
 
