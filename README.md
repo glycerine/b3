@@ -8,14 +8,17 @@ The reported string is the first 32 bytes (256 bits) of
 the 512-bit blake3 hash. It is URL-safe encoded in base64, 
 and prefixed with the distinguishing "blake3.32B-" format label.
 
-The glob syntax supported is the same as filepath.Match().
-See https://pkg.go.dev/path/filepath#Match
-(Use single quotes to supress shell expansion if need be.)
+The file subset selection syntax is a simple strings.Contains()
+based matching. Each filter string will be tested against
+the path. If strings.Contains(path, filter), then that
+path will be scanned. For more complex
+filtering, use the `b3 -i` flag to feed the paths (one per line)
+to `b3` on stdin.
 
 Example:
 
 ~~~
-$ b3 *
+$ b3
 blake3.32B-HJUzsI89QG6-xECkcpRxGNel-Ui-uIi9g8eeGL1XSaQ=   README.md
 blake3.32B-iZEGnHFmCCkM0_PdsHNCyCgVR7za3uBfeBIlEYXxwwQ=   b3.go
 blake3.32B-0qtEYlOq4UxMfbn9DGyd9FWaeIitA94pMhArHjd3oK4=   fileutil.go

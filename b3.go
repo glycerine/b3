@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -18,16 +19,19 @@ import (
 type Blake3SummerConfig struct {
 	help bool
 
-	nosym   bool
-	quiet   bool
-	recurse bool
-	version bool
+	maxDepth int
+	nosym    bool
+	quiet    bool
+	recurse  bool
+	version  bool
 
 	globs []string
 
 	hasExcludes bool
 	xprefix     excludes
 	xsuffix     excludes
+
+	pathListStdin bool
 }
 
 type excludes struct {
@@ -58,6 +62,7 @@ func (tf *excludes) Set(value string) error {
 
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
+	fs.BoolVar(&c.pathListStdin, "i", false, "read list of paths on stdin")
 	fs.BoolVar(&c.nosym, "nosym", false, "do not follow symlinked directories")
 	fs.BoolVar(&c.quiet, "q", false, "act quietly. do not complain if no files to scan")
 	fs.BoolVar(&c.help, "help", false, "show this help")
@@ -137,57 +142,39 @@ func main() {
 	//vv("cfg.xsuffix = '%#v'", cfg.xsuffix)
 	//vv("cfg.xprefix = '%#v'", cfg.xprefix)
 
+	// path -> blake3 checksum
+	results := make(chan *pathsum, 100000)
+
+	fileMap := make(map[string]bool)
 	var paths []string
 
-	// process globs / patterns
-	for _, glob := range cfg.globs {
-		// syntax is the same as filepath.Match()
-		// https://pkg.go.dev/path/filepath#Match
-		matches, err := filepath.Glob(glob)
-		panicOn(err)
-		paths = append(paths, matches...)
-	}
+	if cfg.pathListStdin {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			line := scanner.Text()
+			//fmt.Println("Got line:", line)
 
-	//vv("after globs, paths = '%#v'", paths)
-
-	if !cfg.recurse {
-
-		sort.Strings(paths)
-		//vv("paths = '%#v'", paths)
-		did := 0
-		for _, path := range paths {
-
-			fi, err := os.Stat(path)
+			fi, err := os.Stat(line)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "b3 error on stat of target path '%v': '%v'", path, err)
 				continue
 			}
-			if fi.IsDir() {
-				// ignore directories
-				continue
+			if !fi.IsDir() {
+				fileMap[line] = true
 			}
-			if cfg.hasExcludes && cfg.shouldExclude(path) {
-				continue
-			}
-
-			sum, err := Blake3OfFile(path)
-			panicOn(err)
-			fmt.Printf("%v   %v\n", sum, path)
-			did++
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Fprintf(os.Stderr, "b3 error reading standard input: %v\n", err)
 		}
 
-		if did == 0 && !cfg.quiet {
-			fmt.Fprintf(os.Stderr, "b3 error: no files to scan. Did you want -r to recurse? Use -q to suppress this warning.\n")
-			os.Exit(1)
-		}
 	} else {
-		// -r implementation of recursive.
+
+		if !cfg.recurse {
+			cfg.maxDepth = 1
+		}
 
 		// paths has top level files.
 		// get files from dirs too.
 		var dirs []string
-
-		fileMap := make(map[string]bool)
 
 		// get dirs; all of them so we look for our pattern below the cwd.
 
@@ -196,6 +183,8 @@ func main() {
 		for _, entry := range entries {
 			if entry.IsDir() {
 				dirs = append(dirs, entry.Name())
+			} else {
+				paths = append(paths, entry.Name())
 			}
 		}
 
@@ -214,34 +203,35 @@ func main() {
 					dirs = append(dirs, path)
 				}
 			} else {
-				fileMap[path] = true
+				if cfg.keep(path) {
+					fileMap[path] = true
+				}
 			}
 		}
 		//vv("dirs = '%#v'", dirs)
 
 		// fill in the fileMap with all files in a recursive directory walk
 		cfg.WalkDirs(dirs, fileMap)
-		// don't scan ..
-		delete(fileMap, "..")
-		delete(fileMap, ".")
 
-		// path -> blake3 checksum
-		results := make(chan *pathsum, 100000)
-
-		// checksum the files in parallel.
-		cfg.ScanFiles(fileMap, results)
-
-		var sums pathsumSlice // []*pathsum
-		for sum := range results {
-			sums = append(sums, sum)
-		}
-
-		// report in lexicographic order
-		sort.Sort(sums)
-		for _, s := range sums {
-			fmt.Printf("%v   %v\n", s.sum, s.path)
-		}
 	}
+	// don't scan ..
+	delete(fileMap, "..")
+	delete(fileMap, ".")
+
+	// checksum the files in parallel.
+	cfg.ScanFiles(fileMap, results)
+
+	var sums pathsumSlice // []*pathsum
+	for sum := range results {
+		sums = append(sums, sum)
+	}
+
+	// report in lexicographic order
+	sort.Sort(sums)
+	for _, s := range sums {
+		fmt.Printf("%v   %v\n", s.sum, s.path)
+	}
+
 }
 
 type pathsum struct {
@@ -286,6 +276,18 @@ func (cfg *Blake3SummerConfig) shouldExclude(path string) bool {
 	return false
 }
 
+func (cfg *Blake3SummerConfig) keep(path string) bool {
+	for _, glob := range cfg.globs {
+		if glob == "*" {
+			return true
+		}
+		if strings.Contains(path, glob) {
+			return true
+		}
+	}
+	return false
+}
+
 func (cfg *Blake3SummerConfig) WalkDirs(dirs []string, files map[string]bool) {
 
 	for _, dir := range dirs {
@@ -299,7 +301,7 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 		return
 	}
 
-	err := cfg.walkFollowSymlink(root, func(path string, info os.FileInfo, err error) error {
+	err := cfg.walkFollowSymlink(root, func(path string, info os.FileInfo, depth int, err error) error {
 		// if there was a filesystem error reading one of our dir, we want to know.
 		panicOn(err)
 
@@ -317,22 +319,9 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 			}
 
 			if !isDir {
-				//vv("path '%v' found! base = '%v'", path, base)
-				//vv("compare vs cfg.globs = '%#v' found!", cfg.globs)
-
 				// process globs / patterns
-				for _, glob := range cfg.globs {
-					if glob == "*" {
-						files[path] = true
-						return nil
-					}
-					if strings.Contains(path, glob) {
-						//vv("match! glob='%v'; path='%v'", glob, path)
-						files[path] = true
-						return nil
-					} else {
-						//vv("no-match glob='%v'; path='%v'", glob, path)
-					}
+				if cfg.keep(path) {
+					files[path] = true
 				}
 			}
 		}
@@ -378,6 +367,8 @@ func (cfg *Blake3SummerConfig) ScanOneFile(path string, results chan *pathsum) (
 	return
 }
 
+type depthWalkFunc func(path string, info os.FileInfo, depth int, err error) error
+
 // from path/filepath/path.go, but modified to FOLLOW symlinks
 // WalkFollowSymlink walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root. All errors that arise visiting files
@@ -385,7 +376,7 @@ func (cfg *Blake3SummerConfig) ScanOneFile(path string, results chan *pathsum) (
 // order, which makes the output deterministic but means that for very
 // large directories Walk can be inefficient.
 // This Walk *does* follow symbolic links.
-func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn filepath.WalkFunc) error {
+func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn depthWalkFunc) error {
 
 	var info os.FileInfo
 	var err error
@@ -400,9 +391,9 @@ func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn filepath.Wa
 	}
 
 	if err != nil {
-		err = walkFn(root, nil, err)
+		err = walkFn(root, nil, 0, err)
 	} else {
-		err = cfg.walk(root, info, walkFn)
+		err = cfg.walk(0, root, info, walkFn)
 	}
 	if err == filepath.SkipDir {
 		return nil
@@ -412,14 +403,22 @@ func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn filepath.Wa
 
 // also from path/filepath/path.go
 // walk recursively descends path, calling walkFn.
-func (cfg *Blake3SummerConfig) walk(path string, info os.FileInfo, walkFn filepath.WalkFunc) error {
+func (cfg *Blake3SummerConfig) walk(depth int, path string, info os.FileInfo, walkFn depthWalkFunc) error {
+
+	if cfg.maxDepth > 0 && depth >= cfg.maxDepth {
+		//vv("hit maxDepth at %v.  path = '%v'", depth, path)
+		return filepath.SkipDir
+	} else {
+		//vv("depth(%v) <= maxDepth at %v.  path = '%v'", depth, cfg.maxDepth, path)
+	}
+
 	if !info.IsDir() {
-		return walkFn(path, info, nil)
+		return walkFn(path, info, depth, nil)
 	}
 	//vv("walk in path '%v'", path)
 
 	names, err := readDirNames(path)
-	err1 := walkFn(path, info, err)
+	err1 := walkFn(path, info, depth, err)
 	// If err != nil, walk can't walk into this directory.
 	// err1 != nil means walkFn want walk to skip this directory or stop walking.
 	// Therefore, if one of err and err1 isn't nil, walk will return.
@@ -444,11 +443,11 @@ func (cfg *Blake3SummerConfig) walk(path string, info os.FileInfo, walkFn filepa
 			fileInfo, err = os.Stat(filename) // instead of os.Lstat, follows symlinks
 		}
 		if err != nil {
-			if err := walkFn(filename, fileInfo, err); err != nil && err != filepath.SkipDir {
+			if err := walkFn(filename, fileInfo, depth, err); err != nil && err != filepath.SkipDir {
 				return err
 			}
 		} else {
-			err = cfg.walk(filename, fileInfo, walkFn)
+			err = cfg.walk(depth+1, filename, fileInfo, walkFn)
 			if err != nil {
 				if !fileInfo.IsDir() || err != filepath.SkipDir {
 					return err
