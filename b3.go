@@ -49,7 +49,7 @@ Flags:
 
 // b3 calls
 func main() {
-	vv("top of main for b3")
+	//vv("top of main for b3")
 
 	cfg := &Blake3SummerConfig{}
 	fs := flag.NewFlagSet("b3", flag.ExitOnError)
@@ -65,7 +65,7 @@ func main() {
 		return
 	}
 
-	vv("cfg.paths = '%#v'", cfg.paths)
+	//vv("cfg.paths = '%#v'", cfg.paths)
 
 	var files []string
 
@@ -75,17 +75,15 @@ func main() {
 		if strings.Contains(path, "*") ||
 			strings.Contains(path, "?") ||
 			strings.Contains(path, "[") {
-			vv("doing glob")
 			matches, err := filepath.Glob(path)
 			panicOn(err)
 			files = append(files, matches...)
 		} else {
-			vv("straight append")
 			files = append(files, path)
 		}
 	}
 
-	vv("files = '%#v'", files)
+	//vv("files = '%#v'", files)
 
 	for _, path := range files {
 
