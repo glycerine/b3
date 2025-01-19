@@ -267,6 +267,7 @@ func Blake3OfFile(path string) (blake3sum string, err error) {
 
 func (cfg *Blake3SummerConfig) shouldExclude(path string) bool {
 	base := filepath.Base(path)
+
 	for _, xpre := range cfg.xprefix.x {
 		if strings.HasPrefix(base, xpre) {
 			return true
@@ -275,6 +276,18 @@ func (cfg *Blake3SummerConfig) shouldExclude(path string) bool {
 	for _, xsuf := range cfg.xsuffix.x {
 		if strings.HasSuffix(base, xsuf) {
 			return true
+		}
+	}
+	if path != base {
+		for _, xpre := range cfg.xprefix.x {
+			if strings.HasPrefix(path, xpre) {
+				return true
+			}
+		}
+		for _, xsuf := range cfg.xsuffix.x {
+			if strings.HasSuffix(path, xsuf) {
+				return true
+			}
 		}
 	}
 	return false
@@ -317,9 +330,10 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 
 			//vv("WalkDir found path = '%v' base = '%v'", path, info.Name())
 
-			base := info.Name()
+			//base := info.Name()
 			isDir := info.IsDir()
-			if cfg.hasExcludes && cfg.shouldExclude(base) {
+			if cfg.hasExcludes && cfg.shouldExclude(path) {
+
 				if isDir {
 					return filepath.SkipDir
 				}

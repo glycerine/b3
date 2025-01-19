@@ -38,10 +38,11 @@ Paths are returned in sorted order.
 Install with: `go install github.com/glycerine/b3@latest`
 
 By default, file/dir names with the '~' suffix are ignored.
-This is a convenience for emacs users.
+This is a convenience for emacs users. The same applies to
+the full path.
 
 By default, file/dir names starting with "_" are ignored. This is the same
-convention that the go tools use.
+convention that the go tools use. The same applies to full paths.
 
 The `b3 -x` and `b3 -xs` can be used (multiple times) to change the ignored
 prefixes and suffixes, respectively. These can be use to turn off the
