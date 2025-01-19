@@ -4,12 +4,15 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/glycerine/rpc25519/hash"
 )
 
 type Blake3SummerConfig struct {
 	Help bool
+	All  bool
 
 	paths []string
 }
@@ -17,6 +20,7 @@ type Blake3SummerConfig struct {
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
 	fs.BoolVar(&c.Help, "help", false, "show this help")
+	fs.BoolVar(&c.All, "all", false, "include emacs temp files ending in ~ (ignored by default")
 }
 
 func (c *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
@@ -45,7 +49,7 @@ Flags:
 
 // b3 calls
 func main() {
-	//vv("top of main for b3")
+	vv("top of main for b3")
 
 	cfg := &Blake3SummerConfig{}
 	fs := flag.NewFlagSet("b3", flag.ExitOnError)
@@ -61,25 +65,45 @@ func main() {
 		return
 	}
 
+	vv("cfg.paths = '%#v'", cfg.paths)
+
 	var files []string
 
 	for _, path := range cfg.paths {
+		// syntax is the same as filepath.Match()
+		// https://pkg.go.dev/path/filepath#Match
+		if strings.Contains(path, "*") ||
+			strings.Contains(path, "?") ||
+			strings.Contains(path, "[") {
+			vv("doing glob")
+			matches, err := filepath.Glob(path)
+			panicOn(err)
+			files = append(files, matches...)
+		} else {
+			vv("straight append")
+			files = append(files, path)
+		}
+	}
+
+	vv("files = '%#v'", files)
+
+	for _, path := range files {
+
 		fi, err := os.Stat(path)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "b3 error on stat of target path '%v': '%v'", path, err)
 			continue
 		}
 		if fi.IsDir() {
-			// ignore
+			// ignore directories
+			continue
+		} else if !cfg.All && strings.HasSuffix(path, "~") {
+			continue
 		} else {
-			files = append(files, path)
+			sum, err := hash.Blake3OfFile(path)
+			panicOn(err)
+			fmt.Printf("%v   %v\n", sum, path)
 		}
-	}
-
-	for _, path := range files {
-		sum, err := hash.Blake3OfFile(path)
-		panicOn(err)
-		fmt.Printf("%v   %v\n", sum, path)
 	}
 
 }
