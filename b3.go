@@ -21,9 +21,9 @@ type Blake3SummerConfig struct {
 
 	maxDepth int
 	nosym    bool
-	quiet    bool
-	recurse  bool
-	version  bool
+
+	recurse bool
+	version bool
 
 	globs []string
 
@@ -64,7 +64,7 @@ func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
 	fs.BoolVar(&c.pathListStdin, "i", false, "read list of paths on stdin")
 	fs.BoolVar(&c.nosym, "nosym", false, "do not follow symlinked directories")
-	fs.BoolVar(&c.quiet, "q", false, "act quietly. do not complain if no files to scan")
+
 	fs.BoolVar(&c.help, "help", false, "show this help")
 	fs.BoolVar(&c.recurse, "r", false, "recursive checksum sub-directories")
 	fs.BoolVar(&c.version, "version", false, "show version of b3/dependencies")

@@ -10,9 +10,10 @@ and prefixed with the distinguishing "blake3.32B-" format label.
 
 The file subset selection syntax is a simple strings.Contains()
 based matching. Each filter string will be tested against
-the path. If strings.Contains(path, filter), then that
-path will be scanned. For more complex
-filtering, use the `b3 -i` flag to feed the paths (one per line)
+the whole path. If strings.Contains(path, filter), then that
+path will be checksummed. For more complex
+filtering, create your path list before hand and 
+use the `b3 -i` flag to feed the paths (one per line)
 to `b3` on stdin.
 
 Example:
@@ -30,7 +31,7 @@ $
 
 * Notes:
 
-With no arguments, we assume that `b3 *` was requested.
+With no arguments, we assume scan the current directory.
 
 Paths are returned in sorted order.
 
@@ -42,22 +43,42 @@ This is a convenience for emacs users.
 By default, file/dir names starting with "_" are ignored. This is the same
 convention that the go tools use.
 
-The `b3 -x` and `b3 -xs` can be used (multiple times) to change the excluded
+The `b3 -x` and `b3 -xs` can be used (multiple times) to change the ignored
 prefixes and suffixes, respectively. These can be use to turn off the
-default exclusions:
+default ignored names:
 
 ~~~
-$ b3 -x '' -xs '' *  # scan all files, no default exclusions.
+$ b3 -x '' -xs '' *  # scan all files, no default ignores.
 ~~~
 
 To scan recursively, use the `b3 -r` flag. This will use
 all available cores to checksum directories in parallel.
 The scan will follow symlinks. Use `-nosym` to prevent this.
 
-See `b3 -h` for all flags.
 
 Use `b3 -version` to get version information.
 
+See `b3 -h` for all flags.
+~~~
+$ b3 -h
+Usage of b3:
+  -help
+    	show this help
+        
+  -i	read list of paths on stdin
+  
+  -nosym
+    	do not follow symlinked directories
+
+  -r	recursive checksum sub-directories
+  
+  -version
+    	show version of b3/dependencies
+  -x value
+    	file name prefix to exclude (multiple -x okay; default: '_')
+  -xs value
+    	file name suffix to exclude (multiple -xs okay; default: '~')
+~~~
 
 -----
 Author: Jason E. Aten, Ph.D.
