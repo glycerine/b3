@@ -14,8 +14,13 @@ See https://pkg.go.dev/path/filepath#Match
 Example:
 
 ~~~
-
+$ b3 *
+blake3.32B-HJUzsI89QG6-xECkcpRxGNel-Ui-uIi9g8eeGL1XSaQ=   README.md
+blake3.32B-iZEGnHFmCCkM0_PdsHNCyCgVR7za3uBfeBIlEYXxwwQ=   b3.go
+blake3.32B-0qtEYlOq4UxMfbn9DGyd9FWaeIitA94pMhArHjd3oK4=   fileutil.go
+blake3.32B-w5UsA6LD_FqoOxUcl3wbmwh9V1FhhBdAEvPn5T9yqc4=   go.mod
+blake3.32B-X2h_3xgz4lB-QmnknLG-xuv2WU7w6hPbHJOmqrX6TDM=   go.sum
+blake3.32B-z-GPDZa-Cayr-oFi3VUfec4Y1zGtUGqhp2VM-gO2Sp4=   vprint.go
+$
 ~~~
-
-
 
