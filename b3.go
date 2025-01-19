@@ -230,12 +230,22 @@ func main() {
 		sums = append(sums, sum)
 	}
 
+	// over-all hash of hashes
+	hoh := blake3.New(64, nil)
+
 	// report in lexicographic order
 	sort.Sort(sums)
 	for _, s := range sums {
 		fmt.Printf("%v   %v\n", s.sum, s.path)
+		hoh.Write([]byte(s.path))
 	}
 
+	if len(sums) > 1 {
+		by := hoh.Sum(nil)
+		allsum := "blake3.32B-" + cristalbase64.URLEncoding.EncodeToString(by[:32])
+
+		fmt.Printf("%v   [hash of hashes; checksum of above]\n", allsum)
+	}
 }
 
 type pathsum struct {
