@@ -19,6 +19,7 @@ type Blake3SummerConfig struct {
 	help bool
 	All  bool
 
+	quiet   bool
 	recurse bool
 	version bool
 	paths   []string
@@ -26,6 +27,7 @@ type Blake3SummerConfig struct {
 
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
+	fs.BoolVar(&c.quiet, "q", false, "act quietly. do not complain if no files to scan")
 	fs.BoolVar(&c.help, "help", false, "show this help")
 	fs.BoolVar(&c.recurse, "r", false, "recursive checksum sub-directories")
 	fs.BoolVar(&c.All, "all", false, "include emacs temp files ending in ~ (ignored by default)")
@@ -83,22 +85,16 @@ func main() {
 	for _, path := range cfg.paths {
 		// syntax is the same as filepath.Match()
 		// https://pkg.go.dev/path/filepath#Match
-		if strings.Contains(path, "*") ||
-			strings.Contains(path, "?") ||
-			strings.Contains(path, "[") {
-			matches, err := filepath.Glob(path)
-			panicOn(err)
-			paths = append(paths, matches...)
-		} else {
-			paths = append(paths, path)
-		}
+		matches, err := filepath.Glob(path)
+		panicOn(err)
+		paths = append(paths, matches...)
 	}
 
-	sort.Strings(paths)
-
 	if !cfg.recurse {
-		//vv("paths = '%#v'", paths)
 
+		sort.Strings(paths)
+		//vv("paths = '%#v'", paths)
+		did := 0
 		for _, path := range paths {
 
 			fi, err := os.Stat(path)
@@ -115,7 +111,13 @@ func main() {
 				sum, err := Blake3OfFile(path)
 				panicOn(err)
 				fmt.Printf("%v   %v\n", sum, path)
+				did++
 			}
+		}
+
+		if did == 0 && !cfg.quiet {
+			fmt.Fprintf(os.Stderr, "b3 error: no files to scan. Did you want -r to recurse into sub-directories?\n")
+			os.Exit(1)
 		}
 	} else {
 		// -r implementation of recursive.
@@ -135,17 +137,24 @@ func main() {
 				continue
 			}
 			if fi.IsDir() {
-				dirs = append(dirs, path)
+				if path == "." || path == ".." {
+					// don't scan above, or ourselves again.
+				} else {
+					dirs = append(dirs, path)
+				}
 			} else {
 				fileMap[path] = true
 			}
 		}
 
-		// path -> blake3 checksum
-		results := make(chan *pathsum, 100000)
-
 		// fill in the fileMap with all files in a recursive directory walk
 		cfg.WalkDirs(dirs, fileMap)
+		// don't scan ..
+		delete(fileMap, "..")
+		delete(fileMap, ".")
+
+		// path -> blake3 checksum
+		results := make(chan *pathsum, 100000)
 
 		// checksum the files in parallel.
 		cfg.ScanFiles(fileMap, results)

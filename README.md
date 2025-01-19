@@ -29,6 +29,10 @@ By default, emacs ~ files are ignored. Use `b3 -all` to include them.
 
 Install with: `go install github.com/glycerine/b3@latest`
 
+To scan recursively, use the `b3 -r` flag. See `b3 -h` for all flags.
+Use `b3 -version` to get version information.
+
+
 -----
 Author: Jason E. Aten, Ph.D.
 
