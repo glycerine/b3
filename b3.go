@@ -22,7 +22,8 @@ type Blake3SummerConfig struct {
 	quiet   bool
 	recurse bool
 	version bool
-	paths   []string
+
+	globs []string
 
 	hasExcludes bool
 	xprefix     excludes
@@ -70,7 +71,7 @@ func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 func (cfg *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
 
 	// everything else -- not behind a flag -- is a target path to checksum
-	cfg.paths = fs.Args()
+	cfg.globs = fs.Args()
 
 	//vv("cfg.xsuffix = '%#v'", cfg.xsuffix)
 	//vv("cfg.xprefix = '%#v'", cfg.xprefix)
@@ -91,10 +92,10 @@ func (cfg *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
 	cfg.hasExcludes = len(cfg.xprefix.x) > 0 || len(cfg.xsuffix.x) > 0
 	//vv("cfg.hasExcludes = %v", cfg.hasExcludes)
 
-	if len(cfg.paths) == 0 {
+	if len(cfg.globs) == 0 {
 		// default to the current directory
-		cfg.paths = []string{"*"}
-		//return fmt.Errorf("no paths to process")
+		cfg.globs = []string{"*"}
+		//return fmt.Errorf("no globs to process")
 	}
 	return nil
 }
@@ -131,7 +132,7 @@ func main() {
 		return
 	}
 
-	//vv("cfg.paths = '%#v'", cfg.paths)
+	//vv("cfg.globs = '%#v'", cfg.globs)
 
 	//vv("cfg.xsuffix = '%#v'", cfg.xsuffix)
 	//vv("cfg.xprefix = '%#v'", cfg.xprefix)
@@ -139,13 +140,15 @@ func main() {
 	var paths []string
 
 	// process globs / patterns
-	for _, path := range cfg.paths {
+	for _, glob := range cfg.globs {
 		// syntax is the same as filepath.Match()
 		// https://pkg.go.dev/path/filepath#Match
-		matches, err := filepath.Glob(path)
+		matches, err := filepath.Glob(glob)
 		panicOn(err)
 		paths = append(paths, matches...)
 	}
+
+	//vv("after globs, paths = '%#v'", paths)
 
 	if !cfg.recurse {
 
@@ -186,7 +189,16 @@ func main() {
 
 		fileMap := make(map[string]bool)
 
-		// get dirs
+		// get dirs; all of them so we look for our pattern below the cwd.
+
+		entries, err := os.ReadDir(".")
+		panicOn(err)
+		for _, entry := range entries {
+			if entry.IsDir() {
+				dirs = append(dirs, entry.Name())
+			}
+		}
+
 		for _, path := range paths {
 
 			fi, err := os.Stat(path)
@@ -196,7 +208,8 @@ func main() {
 			}
 			if fi.IsDir() {
 				if path == "." || path == ".." {
-					// don't scan above, or ourselves again.
+					//if path == ".." {
+					// don't scan above
 				} else {
 					dirs = append(dirs, path)
 				}
@@ -204,6 +217,7 @@ func main() {
 				fileMap[path] = true
 			}
 		}
+		//vv("dirs = '%#v'", dirs)
 
 		// fill in the fileMap with all files in a recursive directory walk
 		cfg.WalkDirs(dirs, fileMap)
@@ -288,12 +302,14 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 	err := cfg.walkFollowSymlink(root, func(path string, info os.FileInfo, err error) error {
 		// if there was a filesystem error reading one of our dir, we want to know.
 		panicOn(err)
-		//vv("WalkDir found path = '%v'", path)
 
 		if info != nil && !IsNil(info) {
 
+			//vv("WalkDir found path = '%v' base = '%v'", path, info.Name())
+
+			base := info.Name()
 			isDir := info.IsDir()
-			if cfg.hasExcludes && cfg.shouldExclude(info.Name()) {
+			if cfg.hasExcludes && cfg.shouldExclude(base) {
 				if isDir {
 					return filepath.SkipDir
 				}
@@ -301,8 +317,23 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 			}
 
 			if !isDir {
-				//vv("good path '%v' found!", path)
-				files[path] = true
+				//vv("path '%v' found! base = '%v'", path, base)
+				//vv("compare vs cfg.globs = '%#v' found!", cfg.globs)
+
+				// process globs / patterns
+				for _, glob := range cfg.globs {
+					if glob == "*" {
+						files[path] = true
+						return nil
+					}
+					if strings.Contains(path, glob) {
+						//vv("match! glob='%v'; path='%v'", glob, path)
+						files[path] = true
+						return nil
+					} else {
+						//vv("no-match glob='%v'; path='%v'", glob, path)
+					}
+				}
 			}
 		}
 		return nil
@@ -385,6 +416,7 @@ func (cfg *Blake3SummerConfig) walk(path string, info os.FileInfo, walkFn filepa
 	if !info.IsDir() {
 		return walkFn(path, info, nil)
 	}
+	//vv("walk in path '%v'", path)
 
 	names, err := readDirNames(path)
 	err1 := walkFn(path, info, err)
