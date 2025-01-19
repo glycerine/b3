@@ -17,32 +17,84 @@ import (
 
 type Blake3SummerConfig struct {
 	help bool
-	All  bool
 
 	nosym   bool
 	quiet   bool
 	recurse bool
 	version bool
 	paths   []string
+
+	hasExcludes bool
+	xprefix     excludes
+	xsuffix     excludes
+}
+
+type excludes struct {
+	x []string
+}
+
+func (tf *excludes) String() string {
+	s := ""
+	for _, ta := range tf.x {
+		s += ta + ","
+	}
+	return s
+}
+
+// the flags package will call Set(),
+// in command line order, once for each "-x" or "-xs" flag present.
+func (tf *excludes) Set(value string) error {
+	//vv("Set called with value = '%v'", value)
+	splt := strings.Split(value, ",")
+	for _, s := range splt {
+		ss := strings.TrimSpace(s)
+		//if ss != "" {
+		tf.x = append(tf.x, ss)
+		//}
+	}
+	return nil
 }
 
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
-	fs.BoolVar(&c.nosym, "nosym", false, "do not follow symlinks")
+	fs.BoolVar(&c.nosym, "nosym", false, "do not follow symlinked directories")
 	fs.BoolVar(&c.quiet, "q", false, "act quietly. do not complain if no files to scan")
 	fs.BoolVar(&c.help, "help", false, "show this help")
 	fs.BoolVar(&c.recurse, "r", false, "recursive checksum sub-directories")
-	fs.BoolVar(&c.All, "all", false, "include emacs temp files ending in ~ (ignored by default)")
 	fs.BoolVar(&c.version, "version", false, "show version of b3/dependencies")
+
+	fs.Var(&c.xprefix, "x", "file name prefix to exclude (multiple -x okay; default: '_')")
+	fs.Var(&c.xsuffix, "xs", "file name suffix to exclude (multiple -xs okay; default: '~')")
 }
 
-func (c *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
+func (cfg *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
 
 	// everything else -- not behind a flag -- is a target path to checksum
-	c.paths = fs.Args()
+	cfg.paths = fs.Args()
 
-	if len(c.paths) == 0 {
-		return fmt.Errorf("no paths to process")
+	//vv("cfg.xsuffix = '%#v'", cfg.xsuffix)
+	//vv("cfg.xprefix = '%#v'", cfg.xprefix)
+
+	// allow user to omit all excludes with -x='' -xs=''
+	if len(cfg.xsuffix.x) == 1 && cfg.xsuffix.x[0] == "" {
+		cfg.xsuffix.x = nil
+	} else if len(cfg.xsuffix.x) == 0 {
+		cfg.xsuffix.x = []string{"~"}
+	}
+
+	if len(cfg.xprefix.x) == 1 && cfg.xprefix.x[0] == "" {
+		cfg.xprefix.x = nil
+	} else if len(cfg.xprefix.x) == 0 {
+		cfg.xprefix.x = []string{"_"}
+	}
+
+	cfg.hasExcludes = len(cfg.xprefix.x) > 0 || len(cfg.xsuffix.x) > 0
+	//vv("cfg.hasExcludes = %v", cfg.hasExcludes)
+
+	if len(cfg.paths) == 0 {
+		// default to the current directory
+		cfg.paths = []string{"*"}
+		//return fmt.Errorf("no paths to process")
 	}
 	return nil
 }
@@ -81,6 +133,9 @@ func main() {
 
 	//vv("cfg.paths = '%#v'", cfg.paths)
 
+	//vv("cfg.xsuffix = '%#v'", cfg.xsuffix)
+	//vv("cfg.xprefix = '%#v'", cfg.xprefix)
+
 	var paths []string
 
 	// process globs / patterns
@@ -107,14 +162,15 @@ func main() {
 			if fi.IsDir() {
 				// ignore directories
 				continue
-			} else if !cfg.All && strings.HasSuffix(path, "~") {
-				continue
-			} else {
-				sum, err := Blake3OfFile(path)
-				panicOn(err)
-				fmt.Printf("%v   %v\n", sum, path)
-				did++
 			}
+			if cfg.hasExcludes && cfg.shouldExclude(path) {
+				continue
+			}
+
+			sum, err := Blake3OfFile(path)
+			panicOn(err)
+			fmt.Printf("%v   %v\n", sum, path)
+			did++
 		}
 
 		if did == 0 && !cfg.quiet {
@@ -201,6 +257,21 @@ func Blake3OfFile(path string) (blake3sum string, err error) {
 	return
 }
 
+func (cfg *Blake3SummerConfig) shouldExclude(path string) bool {
+	base := filepath.Base(path)
+	for _, xpre := range cfg.xprefix.x {
+		if strings.HasPrefix(base, xpre) {
+			return true
+		}
+	}
+	for _, xsuf := range cfg.xsuffix.x {
+		if strings.HasSuffix(base, xsuf) {
+			return true
+		}
+	}
+	return false
+}
+
 func (cfg *Blake3SummerConfig) WalkDirs(dirs []string, files map[string]bool) {
 
 	for _, dir := range dirs {
@@ -218,16 +289,18 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 		// if there was a filesystem error reading one of our dir, we want to know.
 		panicOn(err)
 		//vv("WalkDir found path = '%v'", path)
+
 		if info != nil && !IsNil(info) {
-			if info.IsDir() {
-				if strings.HasPrefix(path, "_") { // || strings.HasPrefix(path, ".") {
-					//vv("skipping _ file")
+
+			isDir := info.IsDir()
+			if cfg.hasExcludes && cfg.shouldExclude(info.Name()) {
+				if isDir {
 					return filepath.SkipDir
 				}
-			} else {
-				if strings.HasPrefix(path, "_") { // || strings.HasPrefix(path, ".") {
-					return nil
-				}
+				return nil
+			}
+
+			if !isDir {
 				//vv("good path '%v' found!", path)
 				files[path] = true
 			}

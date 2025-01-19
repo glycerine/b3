@@ -10,7 +10,7 @@ and prefixed with the distinguishing "blake3.32B-" format label.
 
 The glob syntax supported is the same as filepath.Match().
 See https://pkg.go.dev/path/filepath#Match
-
+(Use single quotes to supress shell expansion if need be.)
 
 Example:
 
@@ -27,11 +27,25 @@ $
 
 * Notes:
 
+With no arguments, we assume that `b3 *` was requested.
+
 Paths are returned in sorted order.
 
 Install with: `go install github.com/glycerine/b3@latest`
 
-By default, emacs ~ files are ignored. Use `b3 -all` to include them.
+By default, file/dir names with the '~' suffix are ignored.
+This is a convenience for emacs users.
+
+By default, file/dir names starting with "_" are ignored. This is the same
+convention that the go tools use.
+
+The `b3 -x` and `b3 -xs` can be used (multiple times) to change the excluded
+prefixes and suffixes, respectively. These can be use to turn off the
+default exclusions:
+
+~~~
+$ b3 -x '' -xs '' *  # scan all files, no default exclusions.
+~~~
 
 To scan recursively, use the `b3 -r` flag. This will use
 all available cores to checksum directories in parallel.
