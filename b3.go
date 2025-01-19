@@ -23,7 +23,7 @@ type Blake3SummerConfig struct {
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
 	fs.BoolVar(&c.Help, "help", false, "show this help")
-	fs.BoolVar(&c.All, "all", false, "include emacs temp files ending in ~ (ignored by default")
+	fs.BoolVar(&c.All, "all", false, "include emacs temp files ending in ~ (ignored by default)")
 	fs.BoolVar(&c.version, "version", false, "show version of b3/dependencies")
 }
 
