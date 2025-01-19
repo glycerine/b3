@@ -16,13 +16,15 @@ type Blake3SummerConfig struct {
 	Help bool
 	All  bool
 
-	paths []string
+	version bool
+	paths   []string
 }
 
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
 	fs.BoolVar(&c.Help, "help", false, "show this help")
 	fs.BoolVar(&c.All, "all", false, "include emacs temp files ending in ~ (ignored by default")
+	fs.BoolVar(&c.version, "version", false, "show version of b3/dependencies")
 }
 
 func (c *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
@@ -52,6 +54,7 @@ Flags:
 // b3 calls
 func main() {
 	//vv("top of main for b3")
+	Exit1IfVersionReq()
 
 	cfg := &Blake3SummerConfig{}
 	fs := flag.NewFlagSet("b3", flag.ExitOnError)
