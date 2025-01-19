@@ -3,11 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/glycerine/rpc25519/hash"
+	cristalbase64 "github.com/cristalhq/base64"
+	"lukechampine.com/blake3"
 )
 
 type Blake3SummerConfig struct {
@@ -98,10 +100,24 @@ func main() {
 		} else if !cfg.All && strings.HasSuffix(path, "~") {
 			continue
 		} else {
-			sum, err := hash.Blake3OfFile(path)
+			sum, err := Blake3OfFile(path)
 			panicOn(err)
 			fmt.Printf("%v   %v\n", sum, path)
 		}
 	}
 
+}
+
+func Blake3OfFile(path string) (blake3sum string, err error) {
+	fd, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+	h := blake3.New(64, nil)
+	io.Copy(h, fd)
+	by := h.Sum(nil)
+
+	blake3sum = "blake3.32B-" + cristalbase64.URLEncoding.EncodeToString(by[:32])
+	return
 }
