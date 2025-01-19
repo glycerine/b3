@@ -25,9 +25,13 @@ blake3.32B-z-GPDZa-Cayr-oFi3VUfec4Y1zGtUGqhp2VM-gO2Sp4=   vprint.go
 $
 ~~~
 
-By default, emacs ~ files are ignored. Use `b3 -all` to include them.
+* Notes:
+
+Paths are returned in sorted order.
 
 Install with: `go install github.com/glycerine/b3@latest`
+
+By default, emacs ~ files are ignored. Use `b3 -all` to include them.
 
 To scan recursively, use the `b3 -r` flag. This will use
 all available cores to checksum directories in parallel.
