@@ -118,7 +118,7 @@ func main() {
 		}
 
 		if did == 0 && !cfg.quiet {
-			fmt.Fprintf(os.Stderr, "b3 error: no files to scan. Did you want -r to recurse into sub-directories?\n")
+			fmt.Fprintf(os.Stderr, "b3 error: no files to scan. Did you want -r to recurse? Use -q to suppress this warning.\n")
 			os.Exit(1)
 		}
 	} else {
