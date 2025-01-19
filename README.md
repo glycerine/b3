@@ -24,3 +24,10 @@ blake3.32B-z-GPDZa-Cayr-oFi3VUfec4Y1zGtUGqhp2VM-gO2Sp4=   vprint.go
 $
 ~~~
 
+By default, emacs ~ files are ignored. Use `b3 -all` to include them.
+
+-----
+Author: Jason E. Aten, Ph.D.
+
+License: 3-clause BSD style license, the same as Go. See the LICENSE file.
+
