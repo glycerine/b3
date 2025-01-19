@@ -159,7 +159,11 @@ func main() {
 				continue
 			}
 			if !fi.IsDir() {
-				fileMap[line] = true
+				if cfg.hasExcludes && cfg.shouldExclude(line) {
+					//vv("skipping line '%v'", line)
+				} else {
+					fileMap[line] = true
+				}
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -277,6 +281,10 @@ func (cfg *Blake3SummerConfig) shouldExclude(path string) bool {
 }
 
 func (cfg *Blake3SummerConfig) keep(path string) bool {
+
+	if cfg.hasExcludes && cfg.shouldExclude(path) {
+		return false
+	}
 	for _, glob := range cfg.globs {
 		if glob == "*" {
 			return true
