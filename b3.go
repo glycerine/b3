@@ -28,7 +28,7 @@ type Blake3SummerConfig struct {
 
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
-	fs.BoolVar(&c.nosym, "nosym", false, "do not scan symlinks")
+	fs.BoolVar(&c.nosym, "nosym", false, "do not follow symlinks")
 	fs.BoolVar(&c.quiet, "q", false, "act quietly. do not complain if no files to scan")
 	fs.BoolVar(&c.help, "help", false, "show this help")
 	fs.BoolVar(&c.recurse, "r", false, "recursive checksum sub-directories")
@@ -282,7 +282,19 @@ func (cfg *Blake3SummerConfig) ScanOneFile(path string, results chan *pathsum) (
 // large directories Walk can be inefficient.
 // This Walk *does* follow symbolic links.
 func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn filepath.WalkFunc) error {
-	info, err := os.Stat(root)
+
+	var info os.FileInfo
+	var err error
+
+	if cfg.nosym {
+		info, err = os.Lstat(root) // does not follow sym links
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
+	} else {
+		info, err = os.Stat(root)
+	}
+
 	if err != nil {
 		err = walkFn(root, nil, err)
 	} else {
@@ -320,8 +332,11 @@ func (cfg *Blake3SummerConfig) walk(path string, info os.FileInfo, walkFn filepa
 		var err error
 		if cfg.nosym {
 			fileInfo, err = os.Lstat(filename) // does not follow sym links
+			if fileInfo.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
 		} else {
-			fileInfo, err = os.Stat(filename) // instead of os.Lstat
+			fileInfo, err = os.Stat(filename) // instead of os.Lstat, follows symlinks
 		}
 		if err != nil {
 			if err := walkFn(filename, fileInfo, err); err != nil && err != filepath.SkipDir {
