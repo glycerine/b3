@@ -182,18 +182,26 @@ func main() {
 
 		// get dirs; all of them so we look for our pattern below the cwd.
 
-		entries, err := os.ReadDir(".")
-		panicOn(err)
-		for _, entry := range entries {
-			if entry.IsDir() {
-				dirs = append(dirs, entry.Name())
-			} else {
-				paths = append(paths, entry.Name())
+		for _, g := range cfg.globs {
+			d := filepath.Dir(g)
+			//vv("d = '%v'", d)
+			var pre string
+			if d != "." {
+				pre = d + "/"
+			}
+			entries, err := os.ReadDir(d)
+			panicOn(err)
+			for _, entry := range entries {
+				if entry.IsDir() {
+					dirs = append(dirs, pre+entry.Name())
+				} else {
+					paths = append(paths, pre+entry.Name())
+				}
 			}
 		}
 
 		for _, path := range paths {
-
+			//vv("path = '%v'", path)
 			fi, err := os.Stat(path)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "b3 error on stat of target path '%v': '%v'", path, err)
