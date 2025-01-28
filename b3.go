@@ -245,7 +245,7 @@ func main() {
 	sort.Sort(sums)
 	for _, s := range sums {
 		fmt.Printf("%v   %v\n", s.sum, s.path)
-		hoh.Write([]byte(s.path))
+		hoh.Write([]byte(s.sum))
 	}
 
 	if len(sums) > 1 {
