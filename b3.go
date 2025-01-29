@@ -336,6 +336,7 @@ func (cfg *Blake3SummerConfig) WalkDirs(dirs []string, files map[string]bool) {
 }
 
 func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
+	vv("ScanOneDir root='%v'", root)
 	if !dirExists(root) {
 		return
 	}
@@ -446,7 +447,7 @@ func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn depthWalkFu
 func (cfg *Blake3SummerConfig) walk(depth int, path string, info os.FileInfo, walkFn depthWalkFunc) error {
 
 	if cfg.maxDepth > 0 && depth >= cfg.maxDepth {
-		//vv("hit maxDepth at %v.  path = '%v'", depth, path)
+		vv("hit maxDepth at %v.  path = '%v'", depth, path)
 		return filepath.SkipDir
 	} else {
 		//vv("depth(%v) <= maxDepth at %v.  path = '%v'", depth, cfg.maxDepth, path)
@@ -513,3 +514,58 @@ func readDirNames(dirname string) ([]string, error) {
 	}
 	return names, nil
 }
+
+/*
+func newWalk() {
+	next, stop = iter.Pull2(di.FilesOnly(giverRoot))
+	defer stop()
+
+	for {
+		if pof == nil {
+			// we've just sent off the last
+			pof = &PackOfFiles{}
+			have = pof.Msgsize()
+		}
+
+		path, ok, valid := next()
+		if !valid {
+			//vv("not valid, breaking, ok = %v", ok)
+			break
+		}
+		if !ok {
+			break
+		}
+
+		fi, err := os.Stat(path)
+		panicOn(err)
+
+		// trim off giverRoot
+		path = path[pre:]
+
+		f := &File{
+			Path:     path,
+			Size:     fi.Size(),
+			FileMode: uint32(fi.Mode()),
+			ModTime:  fi.ModTime(),
+		}
+
+		uses := f.Msgsize()
+
+		if have+uses < max {
+			pof.Pack = append(pof.Pack, f)
+			have = pof.Msgsize()
+		} else {
+			// send it off
+			select {
+			case packOfFilesCh <- pof:
+				pof = nil
+			case <-halt.ReqStop.Chan:
+				return
+			case <-done:
+				return
+			}
+		}
+	} // for
+	stop()
+}
+*/
