@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -336,6 +337,28 @@ func (cfg *Blake3SummerConfig) WalkDirs(dirs []string, files map[string]bool) {
 }
 
 func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
+	vv("ScanOneDir root='%v'", root)
+	if !dirExists(root) {
+		return
+	}
+	di := NewDirIter()
+	di.FollowSymlinks = true
+	next, stop := iter.Pull2(di.FilesOnly(root))
+	defer stop()
+
+	for {
+		path, ok, valid := next()
+		if !valid {
+			break
+		}
+		if !ok {
+			break
+		}
+		files[path] = true
+	}
+}
+
+func (cfg *Blake3SummerConfig) oldScanOneDir(root string, files map[string]bool) {
 	vv("ScanOneDir root='%v'", root)
 	if !dirExists(root) {
 		return
