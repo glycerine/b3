@@ -263,7 +263,7 @@ func main() {
 
 	if len(sums) > 1 {
 		by := hoh.Sum(nil)
-		allsum := "blake3.32B-" + cristalbase64.URLEncoding.EncodeToString(by[:32])
+		allsum := "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
 
 		fmt.Printf("%v   [hash of hashes; checksum of above]\n", allsum)
 	}
@@ -303,7 +303,7 @@ func Blake3OfFile(path string, includeModTime bool) (blake3sum string, err error
 
 	by := h.Sum(nil)
 
-	blake3sum = "blake3.32B-" + cristalbase64.URLEncoding.EncodeToString(by[:32])
+	blake3sum = "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
 	return
 }
 
