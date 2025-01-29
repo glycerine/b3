@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	iofs "io/fs"
 	"iter"
 	"os"
 	"path/filepath"
@@ -193,6 +194,11 @@ func main() {
 			entries, err := os.ReadDir(d)
 			panicOn(err)
 			for _, entry := range entries {
+				if entry.Type()&iofs.ModeSymlink != 0 {
+					if cfg.nosym {
+						continue
+					}
+				}
 				if entry.IsDir() {
 					dirs = append(dirs, pre+entry.Name())
 				} else {
@@ -342,7 +348,7 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 		return
 	}
 	di := NewDirIter()
-	di.FollowSymlinks = true
+	di.FollowSymlinks = !cfg.nosym
 	next, stop := iter.Pull2(di.FilesOnly(root))
 	defer stop()
 

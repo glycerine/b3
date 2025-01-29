@@ -124,7 +124,12 @@ func (di *DirIter) FilesOnly(root string) iter.Seq2[string, bool] {
 				for _, entry := range entries {
 					//vv("entry = '%#v'; entry.Type()&fs.ModeSymlink = %v", entry, entry.Type()&fs.ModeSymlink)
 
-					if entry.Type()&fs.ModeSymlink != 0 && di.FollowSymlinks {
+					if entry.Type()&fs.ModeSymlink != 0 {
+						//vv("see symlink : '%v'", entry.Name())
+						if !di.FollowSymlinks {
+							//vv("skipping symlink : '%v'", entry.Name())
+							continue
+						}
 						resolveMe := filepath.Join(path, entry.Name())
 						//vv("have symlink '%v'", resolveMe)
 						target, err := filepath.EvalSymlinks(resolveMe)
