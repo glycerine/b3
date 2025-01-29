@@ -18,6 +18,8 @@ import (
 	"lukechampine.com/blake3"
 )
 
+const fRFC3339NanoNumericTZ0pad = "2006-01-02T15:04:05.000000000-07:00"
+
 type Blake3SummerConfig struct {
 	help bool
 
@@ -34,6 +36,8 @@ type Blake3SummerConfig struct {
 	xsuffix     excludes
 
 	pathListStdin bool
+
+	modtimeHash bool
 }
 
 type excludes struct {
@@ -73,6 +77,8 @@ func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
 	fs.Var(&c.xprefix, "x", "file name prefix to exclude (multiple -x okay; default: '_')")
 	fs.Var(&c.xsuffix, "xs", "file name suffix to exclude (multiple -xs okay; default: '~')")
+
+	fs.BoolVar(&c.modtimeHash, "mt", false, "include modtime in the hash")
 }
 
 func (cfg *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
@@ -276,7 +282,7 @@ func (p pathsumSlice) Less(i, j int) bool {
 }
 func (p pathsumSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-func Blake3OfFile(path string) (blake3sum string, err error) {
+func Blake3OfFile(path string, includeModTime bool) (blake3sum string, err error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -284,6 +290,17 @@ func Blake3OfFile(path string) (blake3sum string, err error) {
 	defer fd.Close()
 	h := blake3.New(64, nil)
 	io.Copy(h, fd)
+
+	if includeModTime {
+		fi, err := fd.Stat()
+		if err != nil {
+			return "", err
+		}
+		// put into a canonical format.
+		s := fmt.Sprintf("%v", fi.ModTime().UTC().Format(fRFC3339NanoNumericTZ0pad))
+		h.Write([]byte(s))
+	}
+
 	by := h.Sum(nil)
 
 	blake3sum = "blake3.32B-" + cristalbase64.URLEncoding.EncodeToString(by[:32])
@@ -428,7 +445,7 @@ func (cfg *Blake3SummerConfig) ScanFiles(files map[string]bool, results chan *pa
 
 func (cfg *Blake3SummerConfig) ScanOneFile(path string, results chan *pathsum) (err error) {
 
-	sum, err := Blake3OfFile(path)
+	sum, err := Blake3OfFile(path, cfg.modtimeHash)
 	if err != nil {
 		return nil
 	}
