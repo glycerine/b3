@@ -377,7 +377,14 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 		if !ok {
 			break
 		}
-		files[path] = true
+		if cfg.hasExcludes && cfg.shouldExclude(path) {
+
+		} else {
+			// process globs / patterns
+			if cfg.keep(path) {
+				files[path] = true
+			}
+		}
 	}
 }
 
@@ -560,58 +567,3 @@ func readDirNames(dirname string) ([]string, error) {
 	}
 	return names, nil
 }
-
-/*
-func newWalk() {
-	next, stop = iter.Pull2(di.FilesOnly(giverRoot))
-	defer stop()
-
-	for {
-		if pof == nil {
-			// we've just sent off the last
-			pof = &PackOfFiles{}
-			have = pof.Msgsize()
-		}
-
-		path, ok, valid := next()
-		if !valid {
-			//vv("not valid, breaking, ok = %v", ok)
-			break
-		}
-		if !ok {
-			break
-		}
-
-		fi, err := os.Stat(path)
-		panicOn(err)
-
-		// trim off giverRoot
-		path = path[pre:]
-
-		f := &File{
-			Path:     path,
-			Size:     fi.Size(),
-			FileMode: uint32(fi.Mode()),
-			ModTime:  fi.ModTime(),
-		}
-
-		uses := f.Msgsize()
-
-		if have+uses < max {
-			pof.Pack = append(pof.Pack, f)
-			have = pof.Msgsize()
-		} else {
-			// send it off
-			select {
-			case packOfFilesCh <- pof:
-				pof = nil
-			case <-halt.ReqStop.Chan:
-				return
-			case <-done:
-				return
-			}
-		}
-	} // for
-	stop()
-}
-*/
