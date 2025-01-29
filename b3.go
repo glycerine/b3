@@ -337,7 +337,7 @@ func (cfg *Blake3SummerConfig) WalkDirs(dirs []string, files map[string]bool) {
 }
 
 func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
-	vv("ScanOneDir root='%v'", root)
+	//vv("ScanOneDir root='%v'", root)
 	if !dirExists(root) {
 		return
 	}
