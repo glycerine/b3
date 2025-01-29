@@ -21,6 +21,7 @@ type DirIter struct {
 	// to keep memory use low.
 	BatchSize      int
 	FollowSymlinks bool
+	MaxDepth       int
 }
 
 // NewDirIter creates a new DirIter.
@@ -89,9 +90,13 @@ func (di *DirIter) FilesOnly(root string) iter.Seq2[string, bool] {
 	return func(yield func(string, bool) bool) {
 
 		// Helper function for recursive traversal
-		var visit func(path string) bool
-		visit = func(path string) bool {
-			//vv("top of visit, path = '%v'", path)
+		var visit func(path string, depth int) bool
+
+		visit = func(path string, depth int) bool {
+			//vv("top of visit, path = '%v'; depth = %v", path, depth)
+			if di.MaxDepth > 0 && depth >= di.MaxDepth {
+				return true // true lets cousins also get to max depth.
+			}
 
 			dir, err := os.Open(path)
 			if err != nil {
@@ -126,7 +131,7 @@ func (di *DirIter) FilesOnly(root string) iter.Seq2[string, bool] {
 
 						if fi.IsDir() {
 							// Recurse immediately when we find a directory
-							if !visit(target) {
+							if !visit(target, depth+1) {
 								return false
 							}
 						} else {
@@ -139,7 +144,7 @@ func (di *DirIter) FilesOnly(root string) iter.Seq2[string, bool] {
 
 					if entry.IsDir() {
 						// Recurse immediately when we find a directory
-						if !visit(filepath.Join(path, entry.Name())) {
+						if !visit(filepath.Join(path, entry.Name()), depth+1) {
 							return false
 						}
 					} else {
@@ -158,7 +163,7 @@ func (di *DirIter) FilesOnly(root string) iter.Seq2[string, bool] {
 		}
 
 		// Start the recursion
-		visit(root)
+		visit(root, 0)
 	}
 }
 

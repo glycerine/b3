@@ -36,8 +36,9 @@ func TestWalkDirsDFSIter(t *testing.T) {
 
 	for {
 		dir, ok, valid := next()
+		_ = dir
 		if !valid {
-			vv("not valid, breaking, ok = %v", ok)
+			//vv("not valid, breaking, ok = %v", ok)
 			break
 		}
 		if !ok {
@@ -45,10 +46,10 @@ func TestWalkDirsDFSIter(t *testing.T) {
 		}
 
 		k++
-		fmt.Println(dir)
+		//fmt.Println(dir)
 
 		if k > limit {
-			vv("break on limit")
+			//vv("break on limit")
 			break
 		}
 	}
@@ -110,5 +111,63 @@ func TestWalkDirs_FollowSymlinks(t *testing.T) {
 	}
 	if !paths["test_root/a/b/c/d/file0.txt"] {
 		t.Fatalf("expected 'test_root/a/b/c/d/file0.txt' in paths")
+	}
+}
+
+func TestWalkDirs_MaxDepth(t *testing.T) {
+
+	// same test but if we cut off at max depth 4, we should get no files.
+
+	root := "test_root"
+
+	os.RemoveAll(root) // cleanup any prior test output.
+	defer os.RemoveAll(root)
+
+	panicOn(os.MkdirAll(filepath.Join(root, "a/b/c/d"), 0700))
+	panicOn(os.MkdirAll(filepath.Join(root, "z"), 0700))
+
+	// two symlinks in a row
+	panicOn(os.Symlink("../a", filepath.Join(root, "z/symlink2")))
+	panicOn(os.Symlink("symlink2", filepath.Join(root, "z/symlink")))
+
+	fd, err := os.Create(filepath.Join(root, "a/b/c/d/file0.txt"))
+	panicOn(err)
+	fd.Close()
+
+	di := NewDirIter()
+	di.FollowSymlinks = true
+	di.MaxDepth = 4
+	next, stop := iter.Pull2(di.FilesOnly(filepath.Join(root, "z")))
+	defer stop()
+
+	seen := 0
+	paths := make(map[string]bool)
+	for {
+		path, ok, valid := next()
+		if !valid {
+			//vv("not valid, breaking, ok = %v", ok)
+			break
+		}
+		if !ok {
+			break
+		}
+		//vv("path = '%v'", path)
+		if fileExists(path) {
+			seen++
+			paths[path] = true
+		}
+	}
+	if want, got := 0, seen; want != got {
+		// there are 2 paths to file0.txt when resolving symlinks:
+		// test_root/z/symlink/symlink2/a/b/c/d/file0.txt
+		// test_root/z/symlink2/a/b/c/d/file0.txt
+		//
+		// both of which resolve ultimately to:
+		//
+		// test_root/a/b/c/d/file0.txt
+		t.Fatalf("want %v, got %v seen files", want, got)
+	}
+	if len(paths) != 0 {
+		t.Fatalf("expected only 0 unique path in paths")
 	}
 }
