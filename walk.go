@@ -16,12 +16,24 @@ import (
 //
 // It uses the new Go iter approach to provide iter.Pull2
 // usable iterators.
+//
+// MaxDepth and FollowSymlinks are available as options --
+// they apply only to the FilesOnly iteration.
 type DirIter struct {
-	// how many directory entries we read at once,
+	// BatchSize is how many directory entries we read at once,
 	// to keep memory use low.
-	BatchSize      int
+	BatchSize int
+
+	// FollowSymlinks can result in results that must
+	// be de-duplicated if multiple symlink paths give
+	// the same file.
 	FollowSymlinks bool
-	MaxDepth       int
+
+	// MaxDepth restricts how deeply we walk into the
+	// filesystem tree. Resolving a symlink only counts
+	// as one depth level, even if it involved
+	// chasing multiple symlinks to their target.
+	MaxDepth int
 }
 
 // NewDirIter creates a new DirIter.
@@ -86,6 +98,8 @@ func (di *DirIter) DirsDepthFirstLeafOnly(root string) iter.Seq2[string, bool] {
 // are multiple paths throught symlinks to the same file.
 // It is the user's responsibility to deduplicate the
 // returned paths if need be when using FollowSymlinks true.
+// Resolving a symlink through multiple other symlinks
+// will only count as one depth level for MaxDepth stopping.
 func (di *DirIter) FilesOnly(root string) iter.Seq2[string, bool] {
 	return func(yield func(string, bool) bool) {
 
