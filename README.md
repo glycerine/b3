@@ -49,7 +49,7 @@ prefixes and suffixes, respectively. These can be use to turn off the
 default ignored names:
 
 ~~~
-$ b3 -x '' -xs '' *  # scan all files, no default ignores.
+$ b3 -x '' -xs ''  # scan all files, no default ignores.
 ~~~
 
 To scan recursively, use the `b3 -r` flag. This will use
