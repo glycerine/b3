@@ -68,6 +68,9 @@ Usage of b3:
         
   -i	read list of paths on stdin
   
+  -mt
+    	include modtime in the hash (helpful for verifying it has been restored)
+  
   -nosym
     	do not follow symlinked directories
 
