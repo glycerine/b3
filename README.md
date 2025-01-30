@@ -4,9 +4,9 @@ b3
 `b3` is a simple utility to compute the blake3 cryptographic
 hash of files. 
 
-The reported string is the first 32 bytes (256 bits) of 
+The reported string is the first 33 bytes (264 bits) of 
 the 512-bit blake3 hash. It is URL-safe encoded in base64, 
-and prefixed with the distinguishing "blake3.32B-" format label.
+and prefixed with the distinguishing "blake3.33B-" format label.
 
 The file subset selection syntax is a simple strings.Contains()
 based matching. Each filter string will be tested against
@@ -20,12 +20,12 @@ Example:
 
 ~~~
 $ b3
-blake3.32B-HJUzsI89QG6-xECkcpRxGNel-Ui-uIi9g8eeGL1XSaQ=   README.md
-blake3.32B-iZEGnHFmCCkM0_PdsHNCyCgVR7za3uBfeBIlEYXxwwQ=   b3.go
-blake3.32B-0qtEYlOq4UxMfbn9DGyd9FWaeIitA94pMhArHjd3oK4=   fileutil.go
-blake3.32B-w5UsA6LD_FqoOxUcl3wbmwh9V1FhhBdAEvPn5T9yqc4=   go.mod
-blake3.32B-X2h_3xgz4lB-QmnknLG-xuv2WU7w6hPbHJOmqrX6TDM=   go.sum
-blake3.32B-z-GPDZa-Cayr-oFi3VUfec4Y1zGtUGqhp2VM-gO2Sp4=   vprint.go
+blake3.33B-HJUzsI89QG6-xECkcpRxGNel-Ui-uIi9g8eeGL1XSaQz   README.md
+blake3.33B-iZEGnHFmCCkM0_PdsHNCyCgVR7za3uBfeBIlEYXxwwQf   b3.go
+blake3.33B-0qtEYlOq4UxMfbn9DGyd9FWaeIitA94pMhArHjd3oK41   fileutil.go
+blake3.33B-w5UsA6LD_FqoOxUcl3wbmwh9V1FhhBdAEvPn5T9yqc47   go.mod
+blake3.33B-X2h_3xgz4lB-QmnknLG-xuv2WU7w6hPbHJOmqrX6TDM1   go.sum
+blake3.33B-z-GPDZa-Cayr-oFi3VUfec4Y1zGtUGqhp2VM-gO2Sp42   vprint.go
 $
 ~~~
 
