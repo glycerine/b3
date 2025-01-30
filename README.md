@@ -45,7 +45,7 @@ By default, file/dir names starting with "_" are ignored. This is the same
 convention that the go tools use. The same applies to full paths.
 
 The `b3 -x` and `b3 -xs` can be used (multiple times) to change the ignored
-prefixes and suffixes, respectively. These can be use to turn off the
+prefixes and suffixes, respectively. These can be used to turn off the
 default ignored names:
 
 ~~~
