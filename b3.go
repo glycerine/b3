@@ -316,8 +316,9 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 		h := blake3.New(64, nil)
 		io.Copy(h, fd)
 	*/
-	// use the new HashFile() facility
-	_, h, err := blake3.HashFile(path)
+	// use the new HashFile() facility. Does
+	// the above in parallel, on all cores at once.
+	sum, h, err := blake3.HashFile(path)
 
 	if cfg.modtimeHash {
 		fi, err := os.Stat(path)
@@ -327,14 +328,13 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 		// put into a canonical format.
 		s := fmt.Sprintf("%v", fi.ModTime().UTC().Format(fRFC3339NanoNumericTZ0pad))
 		h.Write([]byte(s))
+		sum = h.Sum(nil)
 	}
 
-	by := h.Sum(nil)
-
 	if cfg.hex {
-		blake3sum = fmt.Sprintf("%x", by[:32])
+		blake3sum = fmt.Sprintf("%x", sum[:32])
 	} else {
-		blake3sum = "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
+		blake3sum = "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(sum[:33])
 	}
 	return
 }
