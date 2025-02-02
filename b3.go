@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
+	//"io"
 	iofs "io/fs"
 	"iter"
 	"os"
@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	cristalbase64 "github.com/cristalhq/base64"
-	"lukechampine.com/blake3"
+	"github.com/glycerine/blake3"
 )
 
 const fRFC3339NanoNumericTZ0pad = "2006-01-02T15:04:05.000000000-07:00"
@@ -283,16 +283,21 @@ func (p pathsumSlice) Less(i, j int) bool {
 func (p pathsumSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 func Blake3OfFile(path string, includeModTime bool) (blake3sum string, err error) {
-	fd, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer fd.Close()
-	h := blake3.New(64, nil)
-	io.Copy(h, fd)
+
+	/*
+		fd, err := os.Open(path)
+		if err != nil {
+			return "", err
+		}
+		defer fd.Close()
+		h := blake3.New(64, nil)
+		io.Copy(h, fd)
+	*/
+	// use the new HashFile() facility
+	_, h, err := blake3.HashFile(path)
 
 	if includeModTime {
-		fi, err := fd.Stat()
+		fi, err := os.Stat(path)
 		if err != nil {
 			return "", err
 		}
