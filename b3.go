@@ -41,6 +41,9 @@ type Blake3SummerConfig struct {
 
 	// output hex string for comparison with other tools?
 	hex bool
+
+	// skip directory walking.
+	singleFilePath string
 }
 
 type excludes struct {
@@ -84,6 +87,8 @@ func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&c.modtimeHash, "mt", false, "include modtime in the hash")
 
 	fs.BoolVar(&c.hex, "hex", false, "output as hex rather than base64")
+
+	fs.StringVar(&c.singleFilePath, "f", "", "just sum this single file, no directory walking.")
 }
 
 func (cfg *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
@@ -160,6 +165,16 @@ func main() {
 
 	fileMap := make(map[string]bool)
 	var paths []string
+
+	if cfg.singleFilePath != "" {
+		sum, err := cfg.Blake3OfFile(cfg.singleFilePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "b3 error on path '%v': %v\n", cfg.singleFilePath, err)
+			os.Exit(1)
+		}
+		fmt.Printf("%v   %v\n", sum, cfg.singleFilePath)
+		os.Exit(0)
+	}
 
 	if cfg.pathListStdin {
 		scanner := bufio.NewScanner(os.Stdin)
