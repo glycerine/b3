@@ -38,6 +38,9 @@ type Blake3SummerConfig struct {
 	pathListStdin bool
 
 	modtimeHash bool
+
+	// output hex string for comparison with other tools?
+	hex bool
 }
 
 type excludes struct {
@@ -79,6 +82,8 @@ func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 	fs.Var(&c.xsuffix, "xs", "file name suffix to exclude (multiple -xs okay; default: '~')")
 
 	fs.BoolVar(&c.modtimeHash, "mt", false, "include modtime in the hash")
+
+	fs.BoolVar(&c.hex, "hex", false, "output as hex rather than base64")
 }
 
 func (cfg *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
@@ -264,6 +269,9 @@ func main() {
 	if len(sums) > 1 {
 		by := hoh.Sum(nil)
 		allsum := "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
+		if cfg.hex {
+			allsum = fmt.Sprintf("%x", by)
+		}
 
 		fmt.Printf("%v   [hash of hashes; checksum of above]\n", allsum)
 	}
@@ -282,7 +290,7 @@ func (p pathsumSlice) Less(i, j int) bool {
 }
 func (p pathsumSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-func Blake3OfFile(path string, includeModTime bool) (blake3sum string, err error) {
+func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err error) {
 
 	/*
 		fd, err := os.Open(path)
@@ -296,7 +304,7 @@ func Blake3OfFile(path string, includeModTime bool) (blake3sum string, err error
 	// use the new HashFile() facility
 	_, h, err := blake3.HashFile(path)
 
-	if includeModTime {
+	if cfg.modtimeHash {
 		fi, err := os.Stat(path)
 		if err != nil {
 			return "", err
@@ -308,7 +316,11 @@ func Blake3OfFile(path string, includeModTime bool) (blake3sum string, err error
 
 	by := h.Sum(nil)
 
-	blake3sum = "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
+	if cfg.hex {
+		blake3sum = fmt.Sprintf("%x", by)
+	} else {
+		blake3sum = "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
+	}
 	return
 }
 
@@ -457,7 +469,7 @@ func (cfg *Blake3SummerConfig) ScanFiles(files map[string]bool, results chan *pa
 
 func (cfg *Blake3SummerConfig) ScanOneFile(path string, results chan *pathsum) (err error) {
 
-	sum, err := Blake3OfFile(path, cfg.modtimeHash)
+	sum, err := cfg.Blake3OfFile(path)
 	if err != nil {
 		return nil
 	}
