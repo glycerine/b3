@@ -270,7 +270,7 @@ func main() {
 		by := hoh.Sum(nil)
 		allsum := "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
 		if cfg.hex {
-			allsum = fmt.Sprintf("%x", by)
+			allsum = fmt.Sprintf("%x", by[:32])
 		}
 
 		fmt.Printf("%v   [hash of hashes; checksum of above]\n", allsum)
@@ -317,7 +317,7 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 	by := h.Sum(nil)
 
 	if cfg.hex {
-		blake3sum = fmt.Sprintf("%x", by)
+		blake3sum = fmt.Sprintf("%x", by[:32])
 	} else {
 		blake3sum = "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
 	}
