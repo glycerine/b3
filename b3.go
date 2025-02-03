@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	//"io"
 	iofs "io/fs"
 	"iter"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	cristalbase64 "github.com/cristalhq/base64"
 	"github.com/glycerine/blake3"
@@ -167,12 +167,18 @@ func main() {
 	var paths []string
 
 	if cfg.singleFilePath != "" {
+		t0 := time.Now()
 		sum, err := cfg.Blake3OfFile(cfg.singleFilePath)
+		elap := time.Since(t0)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "b3 error on path '%v': %v\n", cfg.singleFilePath, err)
 			os.Exit(1)
 		}
 		fmt.Printf("%v   %v\n", sum, cfg.singleFilePath)
+		fi, err := os.Stat(cfg.singleFilePath)
+		panicOn(err)
+		sz := float64(fi.Size()) / (1 << 20) // in MB/sec
+		fmt.Printf("elap = %v. rate =   %0.6f  MB/sec\n", elap, sz/(float64(elap)/1e9))
 		os.Exit(0)
 	}
 
