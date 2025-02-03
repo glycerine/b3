@@ -178,7 +178,7 @@ func main() {
 		fi, err := os.Stat(cfg.singleFilePath)
 		panicOn(err)
 		sz := float64(fi.Size()) / (1 << 20) // in MB/sec
-		fmt.Printf("elap = %v. rate =   %0.6f  MB/sec\n", elap, sz/(float64(elap)/1e9))
+		fmt.Printf("%0.3f MB.  elap = %v. rate =   %0.6f  MB/sec\n", sz, elap, sz/(float64(elap)/1e9))
 		os.Exit(0)
 	}
 
