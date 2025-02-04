@@ -44,6 +44,9 @@ type Blake3SummerConfig struct {
 
 	// skip directory walking.
 	singleFilePath string
+
+	// output paths before hashes, for easier sorting/diffs
+	pathsFirst bool
 }
 
 type excludes struct {
@@ -89,6 +92,7 @@ func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&c.hex, "hex", false, "output as hex rather than base64")
 
 	fs.StringVar(&c.singleFilePath, "f", "", "just sum this single file, no directory walking.")
+	fs.BoolVar(&c.pathsFirst, "s", false, "sortable, so path names first then hashes in output")
 }
 
 func (cfg *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
@@ -174,7 +178,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "b3 error on path '%v': %v\n", cfg.singleFilePath, err)
 			os.Exit(1)
 		}
-		fmt.Printf("%v   %v\n", sum, cfg.singleFilePath)
+		if cfg.pathsFirst {
+			fmt.Printf("%v   %v\n", cfg.singleFilePath, sum)
+		} else {
+			fmt.Printf("%v   %v\n", sum, cfg.singleFilePath)
+		}
 		fi, err := os.Stat(cfg.singleFilePath)
 		panicOn(err)
 		sz := float64(fi.Size()) / (1 << 20) // in MB/sec
@@ -283,7 +291,11 @@ func main() {
 	// report in lexicographic order
 	sort.Sort(sums)
 	for _, s := range sums {
-		fmt.Printf("%v   %v\n", s.sum, s.path)
+		if cfg.pathsFirst {
+			fmt.Printf("%v   %v\n", s.path, s.sum)
+		} else {
+			fmt.Printf("%v   %v\n", s.sum, s.path)
+		}
 		hoh.Write([]byte(s.sum))
 	}
 
