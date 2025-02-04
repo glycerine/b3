@@ -325,30 +325,46 @@ func (p pathsumSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err error) {
 
-	/*
-		fd, err := os.Open(path)
-		if err != nil {
-			return "", err
-		}
-		defer fd.Close()
-		h := blake3.New(64, nil)
-		io.Copy(h, fd)
-	*/
-	// use the new HashFile() facility. Does
-	// the above in parallel, on all cores at once.
-	sum, h, err := blake3.HashFile(path)
+	var sum []byte
+	var h *blake3.Hasher
 
-	if cfg.modtimeHash {
-		fi, err := os.Stat(path)
-		if err != nil {
-			return "", err
+	done := false
+	if cfg.nosym {
+		fi, err := os.Lstat(path)
+		panicOn(err)
+		if fi.Mode()&os.ModeSymlink != 0 {
+			done = true
+
+			target, err := os.Readlink(path)
+			panicOn(err)
+			h = blake3.New(64, nil)
+			h.Write([]byte(target))
+			sum = h.Sum(nil)
+
+			if cfg.modtimeHash {
+				s := fmt.Sprintf("%v",
+					fi.ModTime().UTC().Format(fRFC3339NanoNumericTZ0pad))
+				h.Write([]byte(s))
+				sum = h.Sum(nil)
+			}
 		}
-		// put into a canonical format.
-		s := fmt.Sprintf("%v", fi.ModTime().UTC().Format(fRFC3339NanoNumericTZ0pad))
-		h.Write([]byte(s))
-		sum = h.Sum(nil)
 	}
+	if !done {
 
+		// use the new HashFile() facility.
+		sum, h, err = blake3.HashFile(path)
+
+		if cfg.modtimeHash {
+			fi, err := os.Stat(path)
+			if err != nil {
+				return "", err
+			}
+			// put into a canonical format.
+			s := fmt.Sprintf("%v", fi.ModTime().UTC().Format(fRFC3339NanoNumericTZ0pad))
+			h.Write([]byte(s))
+			sum = h.Sum(nil)
+		}
+	}
 	if cfg.hex {
 		blake3sum = fmt.Sprintf("%x", sum[:32])
 	} else {

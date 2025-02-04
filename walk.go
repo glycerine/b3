@@ -126,11 +126,21 @@ func (di *DirIter) FilesOnly(root string) iter.Seq2[string, bool] {
 
 					if entry.Type()&fs.ModeSymlink != 0 {
 						//vv("see symlink : '%v'", entry.Name())
+						resolveMe := filepath.Join(path, entry.Name())
+
 						if !di.FollowSymlinks {
-							//vv("skipping symlink : '%v'", entry.Name())
+							//target, err := os.Readlink(resolveMe)
+							//if err != nil {
+							//	// allow dangling links to not stop the walk.
+							//	continue
+							//}
+
+							//vv("unfollowed symlink : '%v'", entry.Name())
+							if !yield(resolveMe, true) {
+								return false
+							}
 							continue
 						}
-						resolveMe := filepath.Join(path, entry.Name())
 						//vv("have symlink '%v'", resolveMe)
 						target, err := filepath.EvalSymlinks(resolveMe)
 						if err != nil {
