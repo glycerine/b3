@@ -54,7 +54,8 @@ $ b3 -x '' -xs ''  # scan all files, no default ignores.
 
 To scan recursively, use the `b3 -r` flag. This will use
 all available cores to checksum directories in parallel.
-The scan will follow symlinks. Use `-nosym` to prevent this.
+The scan does not follow symlinks, but they are included
+as files. Their textual targets are hashed as their content.
 
 
 Use `b3 -version` to get version information.
@@ -71,9 +72,6 @@ Usage of b3:
   -mt
     	include modtime in the hash (helpful for verifying it has been restored)
   
-  -nosym
-    	do not follow symlinked directories
-
   -r	recursive checksum sub-directories
   
   -version

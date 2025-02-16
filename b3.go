@@ -78,7 +78,7 @@ func (tf *excludes) Set(value string) error {
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
 	fs.BoolVar(&c.pathListStdin, "i", false, "read list of paths on stdin")
-	fs.BoolVar(&c.nosym, "nosym", false, "do not follow symlinked directories")
+	//fs.BoolVar(&c.nosym, "nosym", false, "do not follow symlinked directories")
 
 	fs.BoolVar(&c.help, "help", false, "show this help")
 	fs.BoolVar(&c.recurse, "r", false, "recursive checksum sub-directories")
@@ -158,6 +158,8 @@ func main() {
 		fs.PrintDefaults()
 		return
 	}
+	// always
+	cfg.nosym = true
 
 	//vv("cfg.globs = '%#v'", cfg.globs)
 
@@ -235,7 +237,7 @@ func main() {
 			panicOn(err)
 			for _, entry := range entries {
 				if entry.Type()&iofs.ModeSymlink != 0 {
-					if cfg.nosym {
+					if cfg.nosym && entry.IsDir() {
 						continue
 					}
 				}
@@ -255,6 +257,8 @@ func main() {
 				fmt.Fprintf(os.Stderr, "b3 error on Lstat of target path '%v': '%v'\n", path, err)
 				continue
 			}
+			//isSymlink := fi.Mode()&os.ModeSymlink != 0
+
 			if false { // symlink stuff off for the moment
 				if fi.Mode()&os.ModeSymlink != 0 {
 					if cfg.nosym {
@@ -361,28 +365,30 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 	panicOn(err)
 	isSymlink := fi.Mode()&os.ModeSymlink != 0
 
+	// Symlinks that dangle or not make a mess
+	// of our hashing and comparing directories.
+	// We need a consistent approach to verify
+	// that a mirroring of a filesystem tree has
+	// happened. So lets never follow symlinks,
+	// and always hash their target paths as the data.
 	if isSymlink {
+		done = true
+
+		// We simply use the target path as the data to hash.
+		// This verifies that a link got synced correctly.
 		target, err := os.Readlink(path)
 		if err != nil {
 			return "", err
 		}
-		if cfg.nosym || !fileExists(target) {
-			done = true
+		h = blake3.New(64, nil)
+		h.Write([]byte(target))
+		sum = h.Sum(nil)
 
-			// Under -nosym, if we find a symlink,
-			// we just use the target path as the data to hash.
-			h = blake3.New(64, nil)
-			h.Write([]byte(target))
+		if cfg.modtimeHash {
+			s := fmt.Sprintf("%v",
+				fi.ModTime().UTC().Format(fRFC3339NanoNumericTZ0pad))
+			h.Write([]byte(s))
 			sum = h.Sum(nil)
-
-			if cfg.modtimeHash {
-				s := fmt.Sprintf("%v",
-					fi.ModTime().UTC().Format(fRFC3339NanoNumericTZ0pad))
-				h.Write([]byte(s))
-				sum = h.Sum(nil)
-			}
-		} else {
-			vv("have sym link path '%v', target '%v'", path, target)
 		}
 	}
 	if !done {
