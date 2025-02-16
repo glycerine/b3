@@ -362,7 +362,7 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 		if err != nil {
 			return "", err
 		}
-		if cfg.nosym {
+		if cfg.nosym || !fileExists(target) {
 			done = true
 
 			// Under -nosym, if we find a symlink,
@@ -386,7 +386,7 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 		// use the new HashFile() facility.
 		sum, h, err = blake3.HashFile(path)
 		if err != nil {
-			vv("blake3.HashFile gave error: '%v'", err)
+			//vv("blake3.HashFile gave error: '%v'", err) // no such file
 			return "", err
 		}
 
