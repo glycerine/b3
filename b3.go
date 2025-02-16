@@ -377,12 +377,17 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 				h.Write([]byte(s))
 				sum = h.Sum(nil)
 			}
+		} else {
+			vv("have sym link path '%v', target '%v'", path, target)
 		}
 	}
 	if !done {
 
 		// use the new HashFile() facility.
 		sum, h, err = blake3.HashFile(path)
+		if err != nil {
+			return "", err
+		}
 
 		if cfg.modtimeHash {
 			fi, err := os.Stat(path)
