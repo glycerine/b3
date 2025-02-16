@@ -386,6 +386,7 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 		// use the new HashFile() facility.
 		sum, h, err = blake3.HashFile(path)
 		if err != nil {
+			vv("blake3.HashFile gave error: '%v'", err)
 			return "", err
 		}
 
