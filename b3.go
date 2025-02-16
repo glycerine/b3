@@ -249,11 +249,28 @@ func main() {
 
 		for _, path := range paths {
 			//vv("path = '%v'", path)
-			fi, err := os.Stat(path)
+			//fi, err := os.Stat(path) // symlink dangling targets -> error
+			fi, err := os.Lstat(path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "b3 error on stat of target path '%v': '%v'\n", path, err)
+				fmt.Fprintf(os.Stderr, "b3 error on Lstat of target path '%v': '%v'\n", path, err)
 				continue
 			}
+			if fi.Mode()&os.ModeSymlink != 0 {
+				if cfg.nosym {
+					// fall through, do not chase symlinks
+				} else {
+					target, err := os.Readlink(path)
+					if err == nil {
+						path = target
+						fi, err = os.Stat(path)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "b3 error on stat of symlink target path '%v': '%v'\n", path, err)
+							continue
+						}
+					} // else allow dangling links
+				}
+			}
+
 			if fi.IsDir() {
 				if path == "." || path == ".." {
 					//if path == ".." {
