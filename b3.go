@@ -255,27 +255,29 @@ func main() {
 				fmt.Fprintf(os.Stderr, "b3 error on Lstat of target path '%v': '%v'\n", path, err)
 				continue
 			}
-			if fi.Mode()&os.ModeSymlink != 0 {
-				if cfg.nosym {
-					// fall through, do not chase symlinks
-				} else {
-					target, err := os.Readlink(path)
-					if err == nil {
-						fi2, err := os.Stat(target)
-						if err != nil {
-							// now allow dangling link, since they
-							// can be backed up too.
-							//fmt.Fprintf(os.Stderr, "b3 allowing dangling link '%v'\n", path)
-							// old approach:
-							//fmt.Fprintf(os.Stderr, "b3 error on stat of symlink target path '%v': '%v'\n", path, err)
-							//continue
-						} else {
-							fi = fi2
-							path = target
-						}
+			if false { // symlink stuff off for the moment
+				if fi.Mode()&os.ModeSymlink != 0 {
+					if cfg.nosym {
+						// fall through, do not chase symlinks
 					} else {
-						// allow dangling links
-						fmt.Fprintf(os.Stderr, "b3 allowing dangling link '%v'; Readlink err = '%v'\n", path, err)
+						target, err := os.Readlink(path)
+						if err == nil {
+							fi2, err := os.Stat(target)
+							if err != nil {
+								// now allow dangling link, since they
+								// can be backed up too.
+								//fmt.Fprintf(os.Stderr, "b3 allowing dangling link '%v'\n", path)
+								// old approach:
+								//fmt.Fprintf(os.Stderr, "b3 error on stat of symlink target path '%v': '%v'\n", path, err)
+								//continue
+							} else {
+								fi = fi2
+								path = target
+							}
+						} else {
+							// allow dangling links
+							fmt.Fprintf(os.Stderr, "b3 allowing dangling link '%v'; Readlink err = '%v'\n", path, err)
+						}
 					}
 				}
 			}
