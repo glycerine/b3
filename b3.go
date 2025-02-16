@@ -251,7 +251,7 @@ func main() {
 			//vv("path = '%v'", path)
 			fi, err := os.Stat(path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "b3 error on stat of target path '%v': '%v'", path, err)
+				fmt.Fprintf(os.Stderr, "b3 error on stat of target path '%v': '%v'\n", path, err)
 				continue
 			}
 			if fi.IsDir() {
