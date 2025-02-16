@@ -261,11 +261,14 @@ func main() {
 				} else {
 					target, err := os.Readlink(path)
 					if err == nil {
-						path = target
-						fi, err = os.Stat(path)
+						fi2, err := os.Stat(target)
 						if err != nil {
-							fmt.Fprintf(os.Stderr, "b3 error on stat of symlink target path '%v': '%v'\n", path, err)
-							continue
+							// allow dangling link
+							//fmt.Fprintf(os.Stderr, "b3 error on stat of symlink target path '%v': '%v'\n", path, err)
+							//continue
+						} else {
+							fi = fi2
+							path = target
 						}
 					} // else allow dangling links
 				}
