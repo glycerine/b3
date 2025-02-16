@@ -264,13 +264,17 @@ func main() {
 						fi2, err := os.Stat(target)
 						if err != nil {
 							// allow dangling link
+							fmt.Fprintf(os.Stderr, "b3 allowing dangling link '%v'\n", path)
 							//fmt.Fprintf(os.Stderr, "b3 error on stat of symlink target path '%v': '%v'\n", path, err)
 							//continue
 						} else {
 							fi = fi2
 							path = target
 						}
-					} // else allow dangling links
+					} else {
+						// allow dangling links
+						fmt.Fprintf(os.Stderr, "b3 allowing dangling link '%v'; Readlink err = '%v'\n", path, err)
+					}
 				}
 			}
 
@@ -355,6 +359,8 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 		if fi.Mode()&os.ModeSymlink != 0 {
 			done = true
 
+			// Unser -nosym, if we find a symlink,
+			// we just use the target path as the data to hash.
 			target, err := os.Readlink(path)
 			panicOn(err)
 			h = blake3.New(64, nil)
@@ -564,7 +570,9 @@ func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn depthWalkFu
 	if cfg.nosym {
 		info, err = os.Lstat(root) // does not follow sym links
 		if info.Mode()&os.ModeSymlink != 0 {
-			return nil
+			//return nil
+			//I think we do want to return the symlinks though:
+			return walkFn(root, nil, 0, nil)
 		}
 	} else {
 		info, err = os.Stat(root)
