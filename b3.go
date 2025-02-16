@@ -385,8 +385,16 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 		sum = h.Sum(nil)
 
 		if cfg.modtimeHash {
+			modTime := fi.ModTime()
+
+			// ability to recreate timestamps on symlinks
+			// to resolution past milliseconds is
+			// just not there, so truncate our hash
+			// to milliseconds too.
+			modTime = modTime.Truncate(time.Millisecond)
+
 			s := fmt.Sprintf("%v",
-				fi.ModTime().UTC().Format(fRFC3339NanoNumericTZ0pad))
+				modTime.UTC().Format(fRFC3339NanoNumericTZ0pad))
 			h.Write([]byte(s))
 			sum = h.Sum(nil)
 		}
