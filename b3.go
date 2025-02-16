@@ -263,8 +263,10 @@ func main() {
 					if err == nil {
 						fi2, err := os.Stat(target)
 						if err != nil {
-							// allow dangling link
-							fmt.Fprintf(os.Stderr, "b3 allowing dangling link '%v'\n", path)
+							// now allow dangling link, since they
+							// can be backed up too.
+							//fmt.Fprintf(os.Stderr, "b3 allowing dangling link '%v'\n", path)
+							// old approach:
 							//fmt.Fprintf(os.Stderr, "b3 error on stat of symlink target path '%v': '%v'\n", path, err)
 							//continue
 						} else {
