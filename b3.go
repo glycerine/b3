@@ -353,16 +353,19 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 	var h *blake3.Hasher
 
 	done := false
-	if cfg.nosym {
-		fi, err := os.Lstat(path)
-		panicOn(err)
-		if fi.Mode()&os.ModeSymlink != 0 {
+	fi, err := os.Lstat(path)
+	panicOn(err)
+	isSymlink := fi.Mode()&os.ModeSymlink != 0
+
+	if isSymlink {
+		target, err := os.Readlink(path)
+		dangling := err != nil
+
+		if cfg.nosym || dangling {
 			done = true
 
 			// Unser -nosym, if we find a symlink,
 			// we just use the target path as the data to hash.
-			target, err := os.Readlink(path)
-			panicOn(err)
 			h = blake3.New(64, nil)
 			h.Write([]byte(target))
 			sum = h.Sum(nil)
