@@ -2,7 +2,9 @@ b3
 ==
 
 `b3` is a simple utility to compute the blake3 cryptographic
-hash of files. 
+hash of files. At the moment, Linux and Darwin work; Windows 
+does not (https://github.com/glycerine/b3/issues/1), but pull
+requests to help Windows would be welcome.
 
 The reported string is the first 33 bytes (264 bits) of 
 the 512-bit blake3 hash. It is URL-safe encoded in base64, 
