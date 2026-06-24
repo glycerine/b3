@@ -1,4 +1,4 @@
-package main
+package b3
 
 import (
 	"bufio"
@@ -21,32 +21,32 @@ import (
 const fRFC3339NanoNumericTZ0pad = "2006-01-02T15:04:05.000000000-07:00"
 
 type Blake3SummerConfig struct {
-	help bool
+	Help bool
 
-	maxDepth int
-	nosym    bool
+	MaxDepth int
+	NoSym    bool
 
-	recurse bool
-	version bool
+	Recurse bool
+	Version bool
 
-	globs []string
+	Globs []string
 
-	hasExcludes bool
-	xprefix     excludes
-	xsuffix     excludes
+	HasExcludes bool
+	Xprefix     excludes
+	Xsuffix     excludes
 
-	pathListStdin bool
+	PathListStdin bool
 
-	modtimeHash bool
+	ModTimeHash bool
 
 	// output hex string for comparison with other tools?
-	hex bool
+	Hex bool
 
 	// skip directory walking.
-	singleFilePath string
+	SingleFilePath string
 
 	// output paths before hashes, for easier sorting/diffs
-	pathsFirst bool
+	PathsFirst bool
 }
 
 type excludes struct {
@@ -77,51 +77,51 @@ func (tf *excludes) Set(value string) error {
 
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
-	fs.BoolVar(&c.pathListStdin, "i", false, "read list of paths on stdin")
-	//fs.BoolVar(&c.nosym, "nosym", false, "do not follow symlinked directories")
+	fs.BoolVar(&c.PathListStdin, "i", false, "read list of paths on stdin")
+	//fs.BoolVar(&c.NoSym, "nosym", false, "do not follow symlinked directories")
 
-	fs.BoolVar(&c.help, "help", false, "show this help")
-	fs.BoolVar(&c.recurse, "r", false, "recursive checksum sub-directories")
-	fs.BoolVar(&c.version, "version", false, "show version of b3/dependencies")
+	fs.BoolVar(&c.Help, "help", false, "show this help")
+	fs.BoolVar(&c.Recurse, "r", false, "recursive checksum sub-directories")
+	fs.BoolVar(&c.Version, "version", false, "show version of b3/dependencies")
 
-	fs.Var(&c.xprefix, "x", "file name prefix to exclude (multiple -x okay; default: '_')")
-	fs.Var(&c.xsuffix, "xs", "file name suffix to exclude (multiple -xs okay; default: '~')")
+	fs.Var(&c.Xprefix, "x", "file name prefix to exclude (multiple -x okay; default: '_')")
+	fs.Var(&c.Xsuffix, "xs", "file name suffix to exclude (multiple -xs okay; default: '~')")
 
-	fs.BoolVar(&c.modtimeHash, "mt", false, "include modtime in the hash")
+	fs.BoolVar(&c.ModTimeHash, "mt", false, "include modtime in the hash")
 
-	fs.BoolVar(&c.hex, "hex", false, "output as hex rather than base64")
+	fs.BoolVar(&c.Hex, "hex", false, "output as hex rather than base64")
 
-	fs.StringVar(&c.singleFilePath, "f", "", "just sum this single file, no directory walking.")
-	fs.BoolVar(&c.pathsFirst, "s", false, "sortable, so path names first then hashes in output")
+	fs.StringVar(&c.SingleFilePath, "f", "", "just sum this single file, no directory walking.")
+	fs.BoolVar(&c.PathsFirst, "s", false, "sortable, so path names first then hashes in output")
 }
 
 func (cfg *Blake3SummerConfig) FinishConfig(fs *flag.FlagSet) (err error) {
 
 	// everything else -- not behind a flag -- is a target path to checksum
-	cfg.globs = fs.Args()
+	cfg.Globs = fs.Args()
 
-	//vv("cfg.xsuffix = '%#v'", cfg.xsuffix)
-	//vv("cfg.xprefix = '%#v'", cfg.xprefix)
+	//vv("cfg.Xsuffix = '%#v'", cfg.Xsuffix)
+	//vv("cfg.Xprefix = '%#v'", cfg.Xprefix)
 
 	// allow user to omit all excludes with -x='' -xs=''
-	if len(cfg.xsuffix.x) == 1 && cfg.xsuffix.x[0] == "" {
-		cfg.xsuffix.x = nil
-	} else if len(cfg.xsuffix.x) == 0 {
-		cfg.xsuffix.x = []string{"~"}
+	if len(cfg.Xsuffix.x) == 1 && cfg.Xsuffix.x[0] == "" {
+		cfg.Xsuffix.x = nil
+	} else if len(cfg.Xsuffix.x) == 0 {
+		cfg.Xsuffix.x = []string{"~"}
 	}
 
-	if len(cfg.xprefix.x) == 1 && cfg.xprefix.x[0] == "" {
-		cfg.xprefix.x = nil
-	} else if len(cfg.xprefix.x) == 0 {
-		cfg.xprefix.x = []string{"_"}
+	if len(cfg.Xprefix.x) == 1 && cfg.Xprefix.x[0] == "" {
+		cfg.Xprefix.x = nil
+	} else if len(cfg.Xprefix.x) == 0 {
+		cfg.Xprefix.x = []string{"_"}
 	}
 
-	cfg.hasExcludes = len(cfg.xprefix.x) > 0 || len(cfg.xsuffix.x) > 0
-	//vv("cfg.hasExcludes = %v", cfg.hasExcludes)
+	cfg.HasExcludes = len(cfg.Xprefix.x) > 0 || len(cfg.Xsuffix.x) > 0
+	//vv("cfg.HasExcludes = %v", cfg.HasExcludes)
 
-	if len(cfg.globs) == 0 {
+	if len(cfg.Globs) == 0 {
 		// default to the current directory
-		cfg.globs = []string{"*"}
+		cfg.Globs = []string{"*"}
 		//return fmt.Errorf("no globs to process")
 	}
 	return nil
@@ -141,7 +141,7 @@ Flags:
 }
 
 // b3 calls
-func main() {
+func Main() {
 	//vv("top of main for b3")
 	Exit1IfVersionReq()
 
@@ -154,17 +154,17 @@ func main() {
 		fmt.Fprintf(os.Stderr, "b3 error: command line problem: '%s'\n", err)
 		os.Exit(1)
 	}
-	if cfg.help {
+	if cfg.Help {
 		fs.PrintDefaults()
 		return
 	}
 	// always
-	cfg.nosym = true
+	cfg.NoSym = true
 
-	//vv("cfg.globs = '%#v'", cfg.globs)
+	//vv("cfg.Globs = '%#v'", cfg.Globs)
 
-	//vv("cfg.xsuffix = '%#v'", cfg.xsuffix)
-	//vv("cfg.xprefix = '%#v'", cfg.xprefix)
+	//vv("cfg.Xsuffix = '%#v'", cfg.Xsuffix)
+	//vv("cfg.Xprefix = '%#v'", cfg.Xprefix)
 
 	// path -> blake3 checksum
 	results := make(chan *pathsum, 100000)
@@ -172,27 +172,27 @@ func main() {
 	fileMap := make(map[string]bool)
 	var paths []string
 
-	if cfg.singleFilePath != "" {
+	if cfg.SingleFilePath != "" {
 		t0 := time.Now()
-		sum, err := cfg.Blake3OfFile(cfg.singleFilePath)
+		sum, err := cfg.Blake3OfFile(cfg.SingleFilePath)
 		elap := time.Since(t0)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "b3 error on path '%v': %v\n", cfg.singleFilePath, err)
+			fmt.Fprintf(os.Stderr, "b3 error on path '%v': %v\n", cfg.SingleFilePath, err)
 			os.Exit(1)
 		}
-		if cfg.pathsFirst {
-			fmt.Printf("%v   %v\n", cfg.singleFilePath, sum)
+		if cfg.PathsFirst {
+			fmt.Printf("%v   %v\n", cfg.SingleFilePath, sum)
 		} else {
-			fmt.Printf("%v   %v\n", sum, cfg.singleFilePath)
+			fmt.Printf("%v   %v\n", sum, cfg.SingleFilePath)
 		}
-		fi, err := os.Stat(cfg.singleFilePath)
+		fi, err := os.Stat(cfg.SingleFilePath)
 		panicOn(err)
 		sz := float64(fi.Size()) / (1 << 20) // in MB/sec
 		fmt.Printf("%0.3f MB.  elap = %v. rate =   %0.6f  MB/sec\n", sz, elap, sz/(float64(elap)/1e9))
 		os.Exit(0)
 	}
 
-	if cfg.pathListStdin {
+	if cfg.PathListStdin {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -203,7 +203,7 @@ func main() {
 				continue
 			}
 			if !fi.IsDir() {
-				if cfg.hasExcludes && cfg.shouldExclude(line) {
+				if cfg.HasExcludes && cfg.shouldExclude(line) {
 					//vv("skipping line '%v'", line)
 				} else {
 					fileMap[line] = true
@@ -216,8 +216,8 @@ func main() {
 
 	} else {
 
-		if !cfg.recurse {
-			cfg.maxDepth = 1
+		if !cfg.Recurse {
+			cfg.MaxDepth = 1
 		}
 
 		// paths has top level files.
@@ -226,7 +226,7 @@ func main() {
 
 		// get dirs; all of them so we look for our pattern below the cwd.
 
-		for _, g := range cfg.globs {
+		for _, g := range cfg.Globs {
 			d := filepath.Dir(g)
 			//vv("d = '%v'", d)
 			var pre string
@@ -237,7 +237,7 @@ func main() {
 			panicOn(err)
 			for _, entry := range entries {
 				if entry.Type()&iofs.ModeSymlink != 0 {
-					if cfg.nosym && entry.IsDir() {
+					if cfg.NoSym && entry.IsDir() {
 						continue
 					}
 				}
@@ -261,7 +261,7 @@ func main() {
 
 			if false { // symlink stuff off for the moment
 				if fi.Mode()&os.ModeSymlink != 0 {
-					if cfg.nosym {
+					if cfg.NoSym {
 						// fall through, do not chase symlinks
 					} else {
 						target, err := os.Readlink(path)
@@ -323,7 +323,7 @@ func main() {
 	// report in lexicographic order
 	sort.Sort(sums)
 	for _, s := range sums {
-		if cfg.pathsFirst {
+		if cfg.PathsFirst {
 			fmt.Printf("%v   %v\n", s.path, s.sum)
 		} else {
 			fmt.Printf("%v   %v\n", s.sum, s.path)
@@ -334,7 +334,7 @@ func main() {
 	if len(sums) > 1 {
 		by := hoh.Sum(nil)
 		allsum := "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
-		if cfg.hex {
+		if cfg.Hex {
 			allsum = fmt.Sprintf("%x", by[:32])
 		}
 
@@ -384,7 +384,7 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 		h.Write([]byte(target))
 		sum = h.Sum(nil)
 
-		if cfg.modtimeHash {
+		if cfg.ModTimeHash {
 			modTime := fi.ModTime()
 
 			// ability to recreate timestamps on symlinks
@@ -408,7 +408,7 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 			return "", err
 		}
 
-		if cfg.modtimeHash {
+		if cfg.ModTimeHash {
 			fi, err := os.Stat(path)
 			if err != nil {
 				return "", err
@@ -419,7 +419,7 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 			sum = h.Sum(nil)
 		}
 	}
-	if cfg.hex {
+	if cfg.Hex {
 		blake3sum = fmt.Sprintf("%x", sum[:32])
 	} else {
 		blake3sum = "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(sum[:33])
@@ -430,23 +430,23 @@ func (cfg *Blake3SummerConfig) Blake3OfFile(path string) (blake3sum string, err 
 func (cfg *Blake3SummerConfig) shouldExclude(path string) bool {
 	base := filepath.Base(path)
 
-	for _, xpre := range cfg.xprefix.x {
+	for _, xpre := range cfg.Xprefix.x {
 		if strings.HasPrefix(base, xpre) {
 			return true
 		}
 	}
-	for _, xsuf := range cfg.xsuffix.x {
+	for _, xsuf := range cfg.Xsuffix.x {
 		if strings.HasSuffix(base, xsuf) {
 			return true
 		}
 	}
 	if path != base {
-		for _, xpre := range cfg.xprefix.x {
+		for _, xpre := range cfg.Xprefix.x {
 			if strings.HasPrefix(path, xpre) {
 				return true
 			}
 		}
-		for _, xsuf := range cfg.xsuffix.x {
+		for _, xsuf := range cfg.Xsuffix.x {
 			if strings.HasSuffix(path, xsuf) {
 				return true
 			}
@@ -457,10 +457,10 @@ func (cfg *Blake3SummerConfig) shouldExclude(path string) bool {
 
 func (cfg *Blake3SummerConfig) keep(path string) bool {
 
-	if cfg.hasExcludes && cfg.shouldExclude(path) {
+	if cfg.HasExcludes && cfg.shouldExclude(path) {
 		return false
 	}
-	for _, glob := range cfg.globs {
+	for _, glob := range cfg.Globs {
 		if glob == "*" {
 			return true
 		}
@@ -485,7 +485,7 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 		return
 	}
 	di := NewDirIter()
-	di.FollowSymlinks = !cfg.nosym
+	di.FollowSymlinks = !cfg.NoSym
 	next, stop := iter.Pull2(di.FilesOnly(root))
 	defer stop()
 
@@ -497,7 +497,7 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 		if !ok {
 			break
 		}
-		if cfg.hasExcludes && cfg.shouldExclude(path) {
+		if cfg.HasExcludes && cfg.shouldExclude(path) {
 
 		} else {
 			// process globs / patterns
@@ -524,7 +524,7 @@ func (cfg *Blake3SummerConfig) oldScanOneDir(root string, files map[string]bool)
 
 			//base := info.Name()
 			isDir := info.IsDir()
-			if cfg.hasExcludes && cfg.shouldExclude(path) {
+			if cfg.HasExcludes && cfg.shouldExclude(path) {
 
 				if isDir {
 					return filepath.SkipDir
@@ -595,7 +595,7 @@ func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn depthWalkFu
 	var info os.FileInfo
 	var err error
 
-	if cfg.nosym {
+	if cfg.NoSym {
 		info, err = os.Lstat(root) // does not follow sym links
 		if info.Mode()&os.ModeSymlink != 0 {
 			//return nil
@@ -621,11 +621,11 @@ func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn depthWalkFu
 // walk recursively descends path, calling walkFn.
 func (cfg *Blake3SummerConfig) walk(depth int, path string, info os.FileInfo, walkFn depthWalkFunc) error {
 
-	if cfg.maxDepth > 0 && depth >= cfg.maxDepth {
+	if cfg.MaxDepth > 0 && depth >= cfg.MaxDepth {
 		vv("hit maxDepth at %v.  path = '%v'", depth, path)
 		return filepath.SkipDir
 	} else {
-		//vv("depth(%v) <= maxDepth at %v.  path = '%v'", depth, cfg.maxDepth, path)
+		//vv("depth(%v) <= maxDepth at %v.  path = '%v'", depth, cfg.MaxDepth, path)
 	}
 
 	if !info.IsDir() {
@@ -650,7 +650,7 @@ func (cfg *Blake3SummerConfig) walk(depth int, path string, info os.FileInfo, wa
 		filename := filepath.Join(path, name)
 		var fileInfo os.FileInfo
 		var err error
-		if cfg.nosym {
+		if cfg.NoSym {
 			fileInfo, err = os.Lstat(filename) // does not follow sym links
 			if fileInfo.Mode()&os.ModeSymlink != 0 {
 				continue
