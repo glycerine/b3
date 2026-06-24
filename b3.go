@@ -24,7 +24,9 @@ type Blake3SummerConfig struct {
 	Help bool
 
 	MaxDepth int
-	NoSym    bool
+
+	// we default to NOT following symlinks now.
+	FollowSymLinks bool
 
 	Recurse bool
 	Version bool
@@ -47,6 +49,8 @@ type Blake3SummerConfig struct {
 
 	// output paths before hashes, for easier sorting/diffs
 	PathsFirst bool
+
+	Quiet bool
 }
 
 type excludes struct {
@@ -78,7 +82,7 @@ func (tf *excludes) Set(value string) error {
 func (c *Blake3SummerConfig) SetFlags(fs *flag.FlagSet) {
 
 	fs.BoolVar(&c.PathListStdin, "i", false, "read list of paths on stdin")
-	//fs.BoolVar(&c.NoSym, "nosym", false, "do not follow symlinked directories")
+	//fs.BoolVar(&c.FollowSymLinks, "followsym", false, "follow symlinked directories")
 
 	fs.BoolVar(&c.Help, "help", false, "show this help")
 	fs.BoolVar(&c.Recurse, "r", false, "recursive checksum sub-directories")
@@ -158,8 +162,31 @@ func Main() {
 		fs.PrintDefaults()
 		return
 	}
-	// always
-	cfg.NoSym = true
+
+	_, err = DirTreeBlake3Hash(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
+
+type DirTreeHash struct {
+	// response if cfg.SingleFilePath != "" is
+	// in SinglePath and TopBlake3
+	SinglePath string
+
+	// for multiple files, TopBlake3 has the root hash,
+	// a hash of all of these hashes after sorting.
+	PathSums []*PathSum
+
+	// TopBlake3 holds the blake3 hash of the SinglePath file, or the hash
+	// of the sorted hashs of PathSums.
+	TopBlake3 string
+}
+
+func DirTreeBlake3Hash(cfg *Blake3SummerConfig) (ret *DirTreeHash, err0 error) {
+
+	ret = &DirTreeHash{}
 
 	//vv("cfg.Globs = '%#v'", cfg.Globs)
 
@@ -167,7 +194,7 @@ func Main() {
 	//vv("cfg.Xprefix = '%#v'", cfg.Xprefix)
 
 	// path -> blake3 checksum
-	results := make(chan *pathsum, 100000)
+	results := make(chan *PathSum, 100000)
 
 	fileMap := make(map[string]bool)
 	var paths []string
@@ -177,19 +204,23 @@ func Main() {
 		sum, err := cfg.Blake3OfFile(cfg.SingleFilePath)
 		elap := time.Since(t0)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "b3 error on path '%v': %v\n", cfg.SingleFilePath, err)
-			os.Exit(1)
+			return nil, fmt.Errorf("b3 error on path '%v': %v\n", cfg.SingleFilePath, err)
 		}
-		if cfg.PathsFirst {
-			fmt.Printf("%v   %v\n", cfg.SingleFilePath, sum)
-		} else {
-			fmt.Printf("%v   %v\n", sum, cfg.SingleFilePath)
+		if !cfg.Quiet {
+			if cfg.PathsFirst {
+				fmt.Printf("%v   %v\n", cfg.SingleFilePath, sum)
+			} else {
+				fmt.Printf("%v   %v\n", sum, cfg.SingleFilePath)
+			}
+
+			fi, err := os.Stat(cfg.SingleFilePath)
+			panicOn(err)
+			sz := float64(fi.Size()) / (1 << 20) // in MB/sec
+			fmt.Printf("%0.3f MB.  elap = %v. rate =   %0.6f  MB/sec\n", sz, elap, sz/(float64(elap)/1e9))
 		}
-		fi, err := os.Stat(cfg.SingleFilePath)
-		panicOn(err)
-		sz := float64(fi.Size()) / (1 << 20) // in MB/sec
-		fmt.Printf("%0.3f MB.  elap = %v. rate =   %0.6f  MB/sec\n", sz, elap, sz/(float64(elap)/1e9))
-		os.Exit(0)
+		ret.SinglePath = cfg.SingleFilePath
+		ret.TopBlake3 = sum
+		return
 	}
 
 	if cfg.PathListStdin {
@@ -211,7 +242,7 @@ func Main() {
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			fmt.Fprintf(os.Stderr, "b3 error reading standard input: %v\n", err)
+			return nil, fmt.Errorf("b3 error reading standard input: %v\n", err)
 		}
 
 	} else {
@@ -237,7 +268,7 @@ func Main() {
 			panicOn(err)
 			for _, entry := range entries {
 				if entry.Type()&iofs.ModeSymlink != 0 {
-					if cfg.NoSym && entry.IsDir() {
+					if !cfg.FollowSymLinks && entry.IsDir() {
 						continue
 					}
 				}
@@ -254,14 +285,14 @@ func Main() {
 			//fi, err := os.Stat(path) // symlink dangling targets -> error
 			fi, err := os.Lstat(path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "b3 error on Lstat of target path '%v': '%v'\n", path, err)
-				continue
+
+				return nil, fmt.Errorf("b3 error on Lstat of target path '%v': '%v'\n", path, err)
 			}
 			//isSymlink := fi.Mode()&os.ModeSymlink != 0
 
 			if false { // symlink stuff off for the moment
 				if fi.Mode()&os.ModeSymlink != 0 {
-					if cfg.NoSym {
+					if !cfg.FollowSymLinks {
 						// fall through, do not chase symlinks
 					} else {
 						target, err := os.Readlink(path)
@@ -312,7 +343,7 @@ func Main() {
 	// checksum the files in parallel.
 	cfg.ScanFiles(fileMap, results)
 
-	var sums pathsumSlice // []*pathsum
+	var sums pathsumSlice // []*PathSum
 	for sum := range results {
 		sums = append(sums, sum)
 	}
@@ -322,36 +353,45 @@ func Main() {
 
 	// report in lexicographic order
 	sort.Sort(sums)
+
+	ret.PathSums = sums
+
 	for _, s := range sums {
-		if cfg.PathsFirst {
-			fmt.Printf("%v   %v\n", s.path, s.sum)
-		} else {
-			fmt.Printf("%v   %v\n", s.sum, s.path)
+		if !cfg.Quiet {
+			if cfg.PathsFirst {
+				fmt.Printf("%v   %v\n", s.Path, s.Sum)
+			} else {
+				fmt.Printf("%v   %v\n", s.Sum, s.Path)
+			}
 		}
-		hoh.Write([]byte(s.sum))
+		hoh.Write([]byte(s.Sum))
 	}
 
-	if len(sums) > 1 {
-		by := hoh.Sum(nil)
-		allsum := "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
-		if cfg.Hex {
-			allsum = fmt.Sprintf("%x", by[:32])
-		}
-
-		fmt.Printf("%v   [hash of hashes; checksum of above]\n", allsum)
+	by := hoh.Sum(nil)
+	allsum := "blake3.33B-" + cristalbase64.URLEncoding.EncodeToString(by[:33])
+	if cfg.Hex {
+		allsum = fmt.Sprintf("%x", by[:32])
 	}
+	ret.TopBlake3 = allsum
+
+	if !cfg.Quiet {
+		if len(sums) > 1 {
+			fmt.Printf("%v   [hash of hashes; checksum of above]\n", allsum)
+		}
+	}
+	return
 }
 
-type pathsum struct {
-	path string
-	sum  string
+type PathSum struct {
+	Path string
+	Sum  string
 }
 
-type pathsumSlice []*pathsum
+type pathsumSlice []*PathSum
 
 func (p pathsumSlice) Len() int { return len(p) }
 func (p pathsumSlice) Less(i, j int) bool {
-	return p[i].path < p[j].path
+	return p[i].Path < p[j].Path
 }
 func (p pathsumSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
@@ -485,7 +525,7 @@ func (cfg *Blake3SummerConfig) ScanOneDir(root string, files map[string]bool) {
 		return
 	}
 	di := NewDirIter()
-	di.FollowSymlinks = !cfg.NoSym
+	di.FollowSymlinks = cfg.FollowSymLinks
 	next, stop := iter.Pull2(di.FilesOnly(root))
 	defer stop()
 
@@ -544,7 +584,7 @@ func (cfg *Blake3SummerConfig) oldScanOneDir(root string, files map[string]bool)
 	panicOn(err)
 }
 
-func (cfg *Blake3SummerConfig) ScanFiles(files map[string]bool, results chan *pathsum) {
+func (cfg *Blake3SummerConfig) ScanFiles(files map[string]bool, results chan *PathSum) {
 	var wg sync.WaitGroup
 	wg.Add(len(files))
 
@@ -570,14 +610,14 @@ func (cfg *Blake3SummerConfig) ScanFiles(files map[string]bool, results chan *pa
 	close(results)
 }
 
-func (cfg *Blake3SummerConfig) ScanOneFile(path string, results chan *pathsum) (err error) {
+func (cfg *Blake3SummerConfig) ScanOneFile(path string, results chan *PathSum) (err error) {
 
 	sum, err := cfg.Blake3OfFile(path)
 	if err != nil {
 		return nil
 	}
 
-	results <- &pathsum{path: path, sum: sum}
+	results <- &PathSum{Path: path, Sum: sum}
 	return
 }
 
@@ -595,7 +635,7 @@ func (cfg *Blake3SummerConfig) walkFollowSymlink(root string, walkFn depthWalkFu
 	var info os.FileInfo
 	var err error
 
-	if cfg.NoSym {
+	if !cfg.FollowSymLinks {
 		info, err = os.Lstat(root) // does not follow sym links
 		if info.Mode()&os.ModeSymlink != 0 {
 			//return nil
@@ -650,7 +690,7 @@ func (cfg *Blake3SummerConfig) walk(depth int, path string, info os.FileInfo, wa
 		filename := filepath.Join(path, name)
 		var fileInfo os.FileInfo
 		var err error
-		if cfg.NoSym {
+		if !cfg.FollowSymLinks {
 			fileInfo, err = os.Lstat(filename) // does not follow sym links
 			if fileInfo.Mode()&os.ModeSymlink != 0 {
 				continue
