@@ -37,7 +37,7 @@ With no arguments, we assume scan the current directory.
 
 Paths are returned in sorted order.
 
-Install with: `go install github.com/glycerine/b3@latest`
+Install with: `go install github.com/glycerine/b3/cmd/b3@latest`
 
 By default, file/dir names with the '~' suffix are ignored.
 This is a convenience for emacs users. The same applies to
